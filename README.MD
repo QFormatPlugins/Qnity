@@ -1,9 +1,9 @@
-![Qnity](https://github.com/Q-nity/QNity/blob/main/media/header_01.png?raw=true)
+![Qnity](https://github.com/QFormatPlugins/QNity/blob/main/media/header_01.png?raw=true)
 
 # Qnity
 ## quake map importer for Unity based on [Qodot / FuncGodot](https://github.com/func-godot/func_godot_plugin)
 <p align="center">
-<img src="https://github.com/Q-nity/QNity/blob/main/media/demo.gif?raw=true" alt="tb new" width="60%" height=60%/>
+<img src="https://github.com/QFormatPlugins/QNity/blob/main/media/demo.gif?raw=true" alt="tb new" width="60%" height=60%/>
 </p>
 
 Supported Unity Versions:
@@ -34,7 +34,7 @@ Please file an issue if you run into problems. :-)
 you can install it via Unity's [package manager via gitURL](https://docs.unity3d.com/Manual/upm-ui-giturl.html):
 
 ```
-https://github.com/Q-nity/QNity.git?path=/com.qformats.qnity
+https://github.com/QFormatPlugins/QNity.git?path=/com.qformats.qnity
 ```
 
 if you don't have git installed in your `PATH` environment, you can also download the package via github and install it as a local package.
@@ -60,17 +60,17 @@ Alternatively, merge the snippet to Packages/manifest.json
 
 ---
 
-[Read the Wiki](https://github.com/Q-nity/QNity/wiki) for more informations :-)
+[Read the Wiki](https://github.com/QFormatPlugins/QNity/wiki) for more informations :-)
 
 <br>
 <br>
 
 <p float="left">
-<img src="https://github.com/Q-nity/QNity/blob/main/media/screens/screen_1.png?raw=true" width="30%" height="30%"/>
-<img src="https://github.com/Q-nity/QNity/blob/main/media/screens/screen_2.png?raw=true" width="30%" height="30%"/>
-<img src="https://github.com/Q-nity/QNity/blob/main/media/screens/screen_3.png?raw=true" width="30%" height="30%"/>
-<img src="https://github.com/Q-nity/QNity/blob/main/media/screens/screen_4.png?raw=true" width="30%" height="30%"/>
-<img src="https://github.com/Q-nity/QNity/blob/main/media/screens/screen_5.png?raw=true" width="30%" height="30%"/>
+<img src="https://github.com/QFormatPlugins/QNity/blob/main/media/screens/screen_1.png?raw=true" width="30%" height="30%"/>
+<img src="https://github.com/QFormatPlugins/QNity/blob/main/media/screens/screen_2.png?raw=true" width="30%" height="30%"/>
+<img src="https://github.com/QFormatPlugins/QNity/blob/main/media/screens/screen_3.png?raw=true" width="30%" height="30%"/>
+<img src="https://github.com/QFormatPlugins/QNity/blob/main/media/screens/screen_4.png?raw=true" width="30%" height="30%"/>
+<img src="https://github.com/QFormatPlugins/QNity/blob/main/media/screens/screen_5.png?raw=true" width="30%" height="30%"/>
 </P>
 
 <br>
