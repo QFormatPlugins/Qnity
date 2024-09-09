@@ -1,0 +1,20 @@
+{
+  "name": "com.qformats.qnity",
+  "version": "1.0.0",
+  "displayName": "Qnity",
+  "description": "Quake (Trenchbroom) map tools",
+  "unity": "2021.1",
+  "unityRelease": "0b5",
+  "documentationUrl": "https://github.com/qnity/qnity/wiki",
+  "licensesUrl": "https://github.com/qnity/qnity/blob/main/LICENSE",
+  "keywords": [
+    "quake",
+    "trenchbroom",
+    "leveldesign"
+  ],
+  "author": {
+    "name": "Tino Goehlert",
+    "email": "t.goehlert@gmail.com",
+    "url": "https://github.com/qnity"
+  }
+}

@@ -1,0 +1,18 @@
+{
+    "name": "com.qformats.qnity.editor",
+    "rootNamespace": "",
+    "references": [
+        "com.qformats.qnity.runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
