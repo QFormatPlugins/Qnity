@@ -1,10 +1,10 @@
-using UnityEditor.AssetImporters;
-using UnityEngine;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.AssetImporters;
 using UnityEditor.Events;
+using UnityEngine;
 using UnityEngine.Events;
 
 
@@ -64,19 +64,19 @@ namespace Qnity
                 {
                     continue;
                 }
-                
+
                 if (!_classCount.TryAdd(pent.ClassName, 0))
                 {
                     _classCount[pent.ClassName] += 1;
                 }
-                
+
                 var entObj = CreatePointEntityObject(ctx, $"{pent.ClassName}_{_classCount[pent.ClassName]}", pent);
                 if (entObj != null)
                 {
                     entObj.transform.parent = worldSpawnObj.transform;
                 }
             }
-            
+
             foreach (var sent in _nativeMap.SolidEntities)
             {
                 if (sent == null)
@@ -118,7 +118,7 @@ namespace Qnity
         {
             var obj = GetGameObjectForPointEntity(ent);
             if (obj == null) return obj;
-            
+
             obj.name = name;
             ctx.AddObjectToAsset(name, obj);
             return obj;
@@ -173,10 +173,17 @@ namespace Qnity
                 mc.sharedMesh = mesh;
             }
 
+            UnwrapParam settings;
+            UnwrapParam.SetDefaults(out settings);
+            settings.packMargin = 2;
+            settings.areaError = 0.01f;
+            settings.angleError = 0.01f;
+            Unwrapping.GenerateSecondaryUVSet(mesh, settings);
+
             ctx.AddObjectToAsset(name + "_mesh", mesh);
             return obj;
         }
-        
+
         GameObject GetGameObjectForPointEntity(QuakePointEntity entity)
         {
             foreach (var entry in configData.pointEntities)

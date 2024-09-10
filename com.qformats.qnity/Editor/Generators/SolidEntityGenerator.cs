@@ -1,12 +1,12 @@
-using UnityEngine;
-using UnityEditor.AssetImporters;
 using System;
 using System.Collections.Generic;
+using UnityEditor.AssetImporters;
+using UnityEngine;
 using Object = UnityEngine.Object;
 
 namespace Qnity
 {
-    
+
     public class SolidEntityGenerator
     {
         public delegate bool ProcTextureID(int textureID);
@@ -38,14 +38,14 @@ namespace Qnity
                     {
                         ref QuakeVert v = ref face.Vertices[i];
                         vertices.Add(new Vector3(-v.Pos.Y, v.Pos.Z, v.Pos.X) / _configData.inverseScale);
-                        normals.Add(new Vector3(-v.Normal.Y, v.Normal.Z, v.Normal.X));
+                        normals.Add(new Vector3(v.Normal.Y, -v.Normal.Z, -v.Normal.X));
                         tangents.Add(v.Tangent.ToVector4());
                         uvs.Add(new Vector2(v.UV.X, -v.UV.Y));
                     }
 
                     foreach (var index in face.Indices)
                     {
-                        indices.Add(Convert.ToInt32(index+offsetIndex));
+                        indices.Add(Convert.ToInt32(index + offsetIndex));
                     }
                     offsetIndex += face.Vertices.Length;
                 }
@@ -61,7 +61,7 @@ namespace Qnity
 
             return meshArray;
         }
-        
+
         public GameObject GetGameObjectForSolidEntity(QuakeEntity entity)
         {
             GameObject prefab = null;
