@@ -161,6 +161,7 @@ namespace Qnity
                 combineFilters[i].transform = mf.transform.localToWorldMatrix;
             }
 
+            
             mesh.CombineMeshes(combineFilters, false);
             mesh.name = name + "_mesh";
             if (mf != null)
@@ -173,13 +174,15 @@ namespace Qnity
                 mc.sharedMesh = mesh;
             }
 
-            UnwrapParam settings;
-            UnwrapParam.SetDefaults(out settings);
-            settings.packMargin = 2;
-            settings.areaError = 0.01f;
-            settings.angleError = 0.01f;
-            Unwrapping.GenerateSecondaryUVSet(mesh, settings);
 
+            if (configData.generateLightMapUV && mesh.vertexCount > 3)
+            {
+                UnwrapParam.SetDefaults(out var settings);
+                settings.packMargin = 2;
+                settings.areaError = 0.01f;
+                settings.angleError = 0.01f;
+                Unwrapping.GenerateSecondaryUVSet(mesh, settings);
+            }
             ctx.AddObjectToAsset(name + "_mesh", mesh);
             return obj;
         }

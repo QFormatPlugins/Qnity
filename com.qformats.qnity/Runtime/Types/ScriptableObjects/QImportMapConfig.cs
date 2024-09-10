@@ -9,6 +9,7 @@ namespace Qnity
     {
         [Header("General")]
         public float inverseScale = 24;
+        public bool generateLightMapUV;
         [Header("Materials and Folders")]
         public Material defaultBaseMaterial;
         public string textureFolder = "Assets/Textures/";
