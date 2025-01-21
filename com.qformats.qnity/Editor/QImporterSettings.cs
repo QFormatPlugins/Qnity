@@ -16,8 +16,8 @@ namespace Qnity
         public static string k_QnityortMapConfigDataPath = "Assets/DefaultQnityortMapConfigData.asset";
         private const string PackagePath = "Packages/com.qformats.qnity/Assets/";
         
-        [FormerlySerializedAs("m_defaultQnityortMapConfigData")] [SerializeField]
-        private QnityMapConfigData mDefaultQnityMapConfigData;
+        [SerializeField ]
+        private QnityMapConfigData defaultQnityMapConfigData;
         
         public static QnityProjectSettingsData GetOrCreateSettings()
         {
@@ -25,17 +25,17 @@ namespace Qnity
             if (settings == null)
             {
                 settings = CreateInstance<QnityProjectSettingsData>();
-                settings.mDefaultQnityMapConfigData = CreateInstance<QnityMapConfigData>();
-                settings.mDefaultQnityMapConfigData.defaultSolidObject =
+                settings.defaultQnityMapConfigData = CreateInstance<QnityMapConfigData>();
+                settings.defaultQnityMapConfigData.defaultSolidObject =
                     AssetDatabase.LoadAssetAtPath<GameObject>(PackagePath + "Prefabs/Solids/Default.prefab");
-                settings.mDefaultQnityMapConfigData.defaultClipObject =
+                settings.defaultQnityMapConfigData.defaultClipObject =
                     AssetDatabase.LoadAssetAtPath<GameObject>(PackagePath + "Prefabs/Solids/Clip.prefab");
-                settings.mDefaultQnityMapConfigData.defaultTriggerObject =
+                settings.defaultQnityMapConfigData.defaultTriggerObject =
                     AssetDatabase.LoadAssetAtPath<GameObject>(PackagePath + "Prefabs/Solids/Trigger.prefab");
-                settings.mDefaultQnityMapConfigData.defaultBaseMaterial = MaterialManager.Instance.GetBaseMaterial();
-                settings.mDefaultQnityMapConfigData.pointEntities = new List<PointEntity>();
-                settings.mDefaultQnityMapConfigData.solidEntities = new List<SolidEntity>();
-                AssetDatabase.CreateAsset(settings.mDefaultQnityMapConfigData, k_QnityortMapConfigDataPath);
+                settings.defaultQnityMapConfigData.defaultBaseMaterial = MaterialManager.Instance.GetBaseMaterial();
+                settings.defaultQnityMapConfigData.pointEntities = new List<PointEntity>();
+                settings.defaultQnityMapConfigData.solidEntities = new List<SolidEntity>();
+                AssetDatabase.CreateAsset(settings.defaultQnityMapConfigData, k_QnityortMapConfigDataPath);
                 AssetDatabase.CreateAsset(settings, k_QnityProjectSettingsPath);
                 AssetDatabase.SaveAssets();
             }
@@ -44,7 +44,7 @@ namespace Qnity
 
         public QnityMapConfigData GetMapConfigData()
         {
-            return mDefaultQnityMapConfigData;
+            return defaultQnityMapConfigData;
         }
     
         internal static SerializedObject GetSerializedSettings()
@@ -66,8 +66,9 @@ namespace Qnity
                 guiHandler = (searchContext) =>
                 {
                     var settings = QnityProjectSettingsData.GetSerializedSettings();
-                    EditorGUILayout.PropertyField(settings.FindProperty("m_defaultQnityortMapConfigData"), new GUIContent("Map Import Config"));
+                    EditorGUILayout.PropertyField(settings.FindProperty("defaultQnityMapConfigData"), new GUIContent("Map Import Config"));
                     settings.ApplyModifiedPropertiesWithoutUndo();
+  
                 },
     
                 // Populate the search keywords to enable smart search filtering and label highlighting:
@@ -105,7 +106,7 @@ namespace Qnity
         public override void OnGUI(string searchContext)
         {
             // Use IMGUI to display UI:
-            EditorGUILayout.PropertyField(m_CustomSettings.FindProperty("m_defaultQnityortMapConfigData"), Styles.mapConfig);
+            EditorGUILayout.PropertyField(m_CustomSettings.FindProperty("m_defaultQnityMapConfigData"), Styles.mapConfig);
             m_CustomSettings.ApplyModifiedPropertiesWithoutUndo();
         }
     

@@ -16,6 +16,10 @@ namespace Qunity
                 fullPath += "/" + segments[i];
             }
 
+            if (!AssetDatabase.IsValidFolder(fullPath))
+            {
+                return "";
+            }
             var guids = AssetDatabase.FindAssets($"\"{texName}\" t:{type}", new[] { fullPath });
             if (guids.Length > 0)
             {
@@ -39,8 +43,8 @@ namespace Qunity
         {
             pipelinePath = "Base";
             baseColorShaderParam = "_MainTex";
-            if (GraphicsSettings.renderPipelineAsset == null) return;
-            switch (GraphicsSettings.renderPipelineAsset.GetType().Name)
+            if (GraphicsSettings.defaultRenderPipeline == null) return;
+            switch (GraphicsSettings.defaultRenderPipeline.GetType().Name)
             {
                 case "UniversalRenderPipelineAsset":
                 {
