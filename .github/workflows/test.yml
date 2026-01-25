@@ -23,17 +23,6 @@ jobs:
         with:
           dotnet-version: ${{ matrix.dotnet }}
 
-      - name: Debug - Check working directory
-        run: |
-          pwd
-          ls -la
-          echo "=== Checking tests directory ==="
-          ls -la tests/
-          echo "=== Checking QuakeKit.Tests directory ==="
-          ls -la tests/QuakeKit.Tests/
-          echo "=== Looking for .csproj file ==="
-          find tests -name "*.csproj"
-
       - name: Restore dependencies
         run: dotnet restore tests/QuakeKit.Tests/QuakeKit.Tests.csproj
         working-directory: ${{ github.workspace }}
