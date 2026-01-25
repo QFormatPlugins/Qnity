@@ -67,7 +67,7 @@ namespace Qnity
         {
             if (palette == null)
             {
-                palette = (LmpPalette)AssetDatabase.LoadAssetAtPath("Packages/com.qformats.qnity/Assets/palette.lmp", typeof(LmpPalette));
+                palette = (LmpPalette)AssetDatabase.LoadAssetAtPath("Packages/com.quakekit.unity/Assets/palette.lmp", typeof(LmpPalette));
             }
             Stream s = new FileStream(ctx.assetPath, FileMode.Open);
             BinaryReader br = new BinaryReader(s);

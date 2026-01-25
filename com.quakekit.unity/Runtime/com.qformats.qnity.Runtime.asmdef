@@ -1,12 +1,8 @@
 {
-    "name": "com.qformats.qnity.editor",
+    "name": "com.quakekit.unity.runtime",
     "rootNamespace": "",
-    "references": [
-        "com.qformats.qnity.runtime"
-    ],
-    "includePlatforms": [
-        "Editor"
-    ],
+    "references": [],
+    "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,

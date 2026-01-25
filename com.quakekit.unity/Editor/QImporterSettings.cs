@@ -14,7 +14,7 @@ namespace Qnity
     {
         public static string k_QnityProjectSettingsPath = "Assets/QnityProjectSettingsData.asset";
         public static string k_QnityortMapConfigDataPath = "Assets/DefaultQnityortMapConfigData.asset";
-        private const string PackagePath = "Packages/com.qformats.qnity/Assets/";
+        private const string PackagePath = "Packages/com.quakekit.unity/Assets/";
         
         [SerializeField ]
         private QnityMapConfigData defaultQnityMapConfigData;

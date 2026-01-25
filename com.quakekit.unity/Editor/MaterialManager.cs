@@ -8,7 +8,7 @@ using UnityEngine.Rendering;
 
 public class MaterialManager
 {
-    private const string Pkgpath = "Packages/com.qformats.qnity/Assets/Materials/";
+    private const string Pkgpath = "Packages/com.quakekit.unity/Assets/Materials/";
 
     private static MaterialManager _instance;
     private Material _baseMaterial;

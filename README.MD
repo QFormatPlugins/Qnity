@@ -34,7 +34,7 @@ Please file an issue if you run into problems. :-)
 you can install it via Unity's [package manager via gitURL](https://docs.unity3d.com/Manual/upm-ui-giturl.html):
 
 ```
-https://github.com/QFormatPlugins/QNity.git?path=/com.qformats.qnity
+https://github.com/QFormatPlugins/QNity.git?path=/com.quakekit.unity
 ```
 
 if you don't have git installed in your `PATH` environment, you can also download the package via github and install it as a local package.
