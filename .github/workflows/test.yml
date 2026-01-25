@@ -1,4 +1,4 @@
-name: Run Tests
+name: Tests
 
 on:
   push:
@@ -22,6 +22,9 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ matrix.dotnet }}
+
+      - name: List workspace files
+        run: ls -la
 
       - name: Restore dependencies
         run: dotnet restore tests/QuakeKit.Tests/QuakeKit.Tests.csproj

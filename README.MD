@@ -2,7 +2,7 @@
 
 # Qnity
 
-[![Run Tests](https://github.com/QFormatPlugins/QuakeKit-unity/actions/workflows/test.yml/badge.svg)](https://github.com/QFormatPlugins/QuakeKit-unity/actions/workflows/test.yml)
+[![Tests](https://github.com/QuakeKit/Unity/actions/workflows/test.yml/badge.svg)](https://github.com/QuakeKit/Unity/actions/workflows/test.yml)
 
 ## quake map importer for Unity based on [Qodot / FuncGodot](https://github.com/func-godot/func_godot_plugin)
 <p align="center">
