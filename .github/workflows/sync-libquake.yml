@@ -64,13 +64,13 @@ jobs:
           mkdir -p "$TARGET_DIR"/{linux,macos,win}
 
           # Linux
-          unzip -j temp/libquake-linux.zip "lib/*" -d "$TARGET_DIR/linux/"
+          unzip -o -j temp/libquake-linux.zip "lib/*" -d "$TARGET_DIR/linux/"
 
           # macOS  
-          unzip -j temp/libquake-macos.zip "lib/*" -d "$TARGET_DIR/macos/"
+          unzip -o -j temp/libquake-macos.zip "lib/*" -d "$TARGET_DIR/macos/"
 
           # Windows
-          unzip -j temp/libquake-win.zip "lib/*" -d "$TARGET_DIR/win/"
+          unzip -o -j temp/libquake-win.zip "lib/*" -d "$TARGET_DIR/win/"
 
           rm -rf temp
 
