@@ -27,8 +27,12 @@ jobs:
         run: |
           pwd
           ls -la
-          ls -la tests/ || echo "tests directory not found"
-          ls -la tests/QuakeKit.Tests/ || echo "QuakeKit.Tests directory not found"
+          echo "=== Checking tests directory ==="
+          ls -la tests/
+          echo "=== Checking QuakeKit.Tests directory ==="
+          ls -la tests/QuakeKit.Tests/
+          echo "=== Looking for .csproj file ==="
+          find tests -name "*.csproj"
 
       - name: Restore dependencies
         run: dotnet restore tests/QuakeKit.Tests/QuakeKit.Tests.csproj
