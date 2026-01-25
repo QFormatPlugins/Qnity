@@ -17,7 +17,7 @@ namespace Qnity
     public sealed class QMapAssetImporter : ScriptedImporter
     {
         public QnityMapConfigData configData;
-        private NativeQMap _nativeMap;
+        private NativeQFMap _nativeMap;
         private readonly Dictionary<string, Material> _usedMaterials = new Dictionary<string, Material>();
         private readonly Dictionary<string, int> _classCount = new Dictionary<string, int>();
         private SolidEntityGenerator _solidEntityGenerator;
@@ -39,24 +39,31 @@ namespace Qnity
             _solidEntityGenerator = new SolidEntityGenerator(configData);
             Stopwatch stopwatch = Stopwatch.StartNew();
 
-            _nativeMap = new NativeQMap();
-            _nativeMap.Load(ctx.assetPath, texName =>
+            _nativeMap = new NativeQFMap();
+
+            // Load MAP file with CSG enabled
+            _nativeMap.Load(ctx.assetPath, enableCSG: true, convertToOpenGL: false);
+
+            // Set surface types for special textures
+            _nativeMap.SetFaceTypes(configData.clipTexture, SurfaceType.Clip);
+            _nativeMap.SetFaceTypes(configData.skipTexture, SurfaceType.Skip);
+            _nativeMap.SetFaceTypes(configData.skyTexture, SurfaceType.NoDraw);
+
+            // Export all geometry and entity data
+            _nativeMap.ExportData();
+
+            // Create worldspawn (first solid entity is always worldspawn)
+            GameObject worldSpawnObj = null;
+            if (_nativeMap.SolidEntities.Count > 0)
             {
-                var tex = MaterialManager.Instance.GetMaterial(texName, configData.textureFolder, configData.materialFolder);
-                var tb = new TextureBounds() { Width = 64, Height = 64 };
-                if (tex.mainTexture == null) return tb;
-                tb.Width = tex.mainTexture.width;
-                tb.Height = tex.mainTexture.height;
-                return tb;
-            });
-
-            _nativeMap.AddTextureToFaceType(configData.clipTexture, QfaceType.Clip);
-            _nativeMap.AddTextureToFaceType(configData.skipTexture, QfaceType.Skip);
-            _nativeMap.AddTextureToFaceType(configData.skyTexture, QfaceType.NoDraw);
-
-            _nativeMap.Generate();
-
-            var worldSpawnObj = CreateSolidEntityObject(ctx, "worldSpawn", _nativeMap.WorldSpawn);
+                worldSpawnObj = CreateSolidEntityObject(ctx, "worldSpawn", _nativeMap.SolidEntities[0]);
+            }
+            else
+            {
+                // Empty map, create an empty GameObject
+                worldSpawnObj = new GameObject("worldSpawn");
+                ctx.AddObjectToAsset("worldSpawn", worldSpawnObj);
+            }
 
             foreach (var pent in _nativeMap.PointEntities)
             {
@@ -77,8 +84,10 @@ namespace Qnity
                 }
             }
 
-            foreach (var sent in _nativeMap.SolidEntities)
+            // Process remaining solid entities (skip first as it's worldspawn)
+            for (int i = 1; i < _nativeMap.SolidEntities.Count; i++)
             {
+                var sent = _nativeMap.SolidEntities[i];
                 if (sent == null)
                 {
                     continue;
@@ -114,7 +123,7 @@ namespace Qnity
             UnityEngine.Debug.Log("parsed " + ctx.assetPath + " in: " + stopwatch.Elapsed);
         }
 
-        private GameObject CreatePointEntityObject(AssetImportContext ctx, string name, QuakePointEntity ent)
+        private GameObject CreatePointEntityObject(AssetImportContext ctx, string name, MapPointEntity ent)
         {
             var obj = GetGameObjectForPointEntity(ent);
             if (obj == null) return obj;
@@ -124,7 +133,7 @@ namespace Qnity
             return obj;
         }
 
-        private GameObject CreateSolidEntityObject(AssetImportContext ctx, string name, QuakeSolidEntity ent)
+        private GameObject CreateSolidEntityObject(AssetImportContext ctx, string name, MapSolidEntity ent)
         {
             var obj = _solidEntityGenerator.GetGameObjectForSolidEntity(ent);
             obj.name = name;
@@ -161,7 +170,7 @@ namespace Qnity
                 combineFilters[i].transform = mf.transform.localToWorldMatrix;
             }
 
-            
+
             mesh.CombineMeshes(combineFilters, false);
             mesh.name = name + "_mesh";
             if (mf != null)
@@ -187,7 +196,7 @@ namespace Qnity
             return obj;
         }
 
-        GameObject GetGameObjectForPointEntity(QuakePointEntity entity)
+        GameObject GetGameObjectForPointEntity(MapPointEntity entity)
         {
             foreach (var entry in configData.pointEntities)
             {

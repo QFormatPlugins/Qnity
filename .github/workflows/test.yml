@@ -1,0 +1,40 @@
+name: Run Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        dotnet: ["8.0.x"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ matrix.dotnet }}
+
+      - name: Restore dependencies
+        run: dotnet restore tests/QuakeKit.Tests/QuakeKit.Tests.csproj
+
+      - name: Build
+        run: dotnet build tests/QuakeKit.Tests/QuakeKit.Tests.csproj --no-restore
+
+      - name: Test
+        run: dotnet test tests/QuakeKit.Tests/QuakeKit.Tests.csproj --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: "**/test-results.trx"

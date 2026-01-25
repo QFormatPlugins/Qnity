@@ -1,6 +1,9 @@
 ![Qnity](https://github.com/QFormatPlugins/QNity/blob/main/media/header_01.png?raw=true)
 
 # Qnity
+
+[![Run Tests](https://github.com/QFormatPlugins/QuakeKit-unity/actions/workflows/test.yml/badge.svg)](https://github.com/QFormatPlugins/QuakeKit-unity/actions/workflows/test.yml)
+
 ## quake map importer for Unity based on [Qodot / FuncGodot](https://github.com/func-godot/func_godot_plugin)
 <p align="center">
 <img src="https://github.com/QFormatPlugins/QNity/blob/main/media/demo.gif?raw=true" alt="tb new" width="60%" height=60%/>

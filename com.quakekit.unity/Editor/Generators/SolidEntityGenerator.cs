@@ -16,43 +16,55 @@ namespace Qnity
         {
             _configData = configData;
         }
-        public List<Mesh> Generate(ref QuakeSolidEntity qent, ProcTextureID onTextureID)
+
+        public List<Mesh> Generate(ref MapSolidEntity mapEntity, ProcTextureID onTextureID)
         {
             List<Mesh> meshArray = new();
-            foreach (var faceList in qent.FacesByTextureID)
+
+            foreach (var submesh in mapEntity.Submeshes)
             {
-                if (faceList.Value.Count > 0 && faceList.Value[0].Type != QfaceType.Solid)
+                // Skip non-solid surfaces
+                if (submesh.SurfaceType != SurfaceType.Solid)
                 {
                     continue;
                 }
+
+                onTextureID(submesh.TextureID);
+
                 var vertices = new List<Vector3>();
                 var normals = new List<Vector3>();
                 var tangents = new List<Vector4>();
                 var uvs = new List<Vector2>();
+                var lightmapUVs = new List<Vector2>();
                 var indices = new List<int>();
-                var offsetIndex = 0;
-                onTextureID(faceList.Key);
-                foreach (var face in faceList.Value)
-                {
-                    for (int i = 0; i < face.Vertices.Length; i++)
-                    {
-                        ref QuakeVert v = ref face.Vertices[i];
-                        vertices.Add(new Vector3(-v.Pos.Y, v.Pos.Z, v.Pos.X) / _configData.inverseScale);
-                        normals.Add(new Vector3(v.Normal.Y, -v.Normal.Z, -v.Normal.X));
-                        tangents.Add(v.Tangent.ToVector4());
-                        uvs.Add(new Vector2(v.UV.X, -v.UV.Y));
-                    }
 
-                    foreach (var index in face.Indices)
-                    {
-                        indices.Add(Convert.ToInt32(index + offsetIndex));
-                    }
-                    offsetIndex += face.Vertices.Length;
+                // Extract vertices for this submesh
+                for (uint i = 0; i < submesh.VertexCount; i++)
+                {
+                    uint vertexIndex = submesh.VertexOffset + i;
+                    ref QLibVertex v = ref mapEntity.Vertices[vertexIndex];
+
+                    // Convert from Quake coordinates to Unity coordinates
+                    vertices.Add(new Vector3(-v.pos.y, v.pos.z, v.pos.x) / _configData.inverseScale);
+                    normals.Add(new Vector3(v.normal.y, -v.normal.z, -v.normal.x));
+                    tangents.Add(v.tangent.ToVector4());
+                    uvs.Add(new Vector2(v.uv.x, -v.uv.y));
+                    lightmapUVs.Add(new Vector2(v.lightmapUV.x, v.lightmapUV.y));
                 }
+
+                // Extract indices for this submesh (relative to submesh vertices)
+                for (uint i = 0; i < submesh.IndexCount; i++)
+                {
+                    uint globalIndex = mapEntity.Indices[submesh.IndexOffset + i];
+                    uint localIndex = globalIndex - submesh.VertexOffset;
+                    indices.Add(Convert.ToInt32(localIndex));
+                }
+
                 var m = new Mesh();
                 m.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
                 m.vertices = vertices.ToArray();
                 m.uv = uvs.ToArray();
+                m.uv2 = lightmapUVs.ToArray();
                 m.normals = normals.ToArray();
                 m.tangents = tangents.ToArray();
                 m.SetTriangles(indices, 0);
@@ -62,7 +74,7 @@ namespace Qnity
             return meshArray;
         }
 
-        public GameObject GetGameObjectForSolidEntity(QuakeEntity entity)
+        public GameObject GetGameObjectForSolidEntity(MapSolidEntity entity)
         {
             GameObject prefab = null;
             foreach (var entry in _configData.solidEntities)

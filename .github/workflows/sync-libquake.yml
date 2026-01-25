@@ -33,9 +33,28 @@ jobs:
         run: |
           mkdir -p temp
           cd temp
+
+          # Check what assets are available
+          echo "Checking assets for release ${{ steps.release.outputs.version }}..."
+          gh release view ${{ steps.release.outputs.version }} \
+            --repo QuakeKit/libquake \
+            --json assets -q '.assets[].name'
+
+          # Download available assets
           gh release download ${{ steps.release.outputs.version }} \
             --repo QuakeKit/libquake \
-            --pattern "libquake-*.zip"
+            --pattern "libquake-*.zip" || {
+            echo "Error: No assets found matching pattern libquake-*.zip"
+            echo "Please ensure the release has the required platform binaries:"
+            echo "  - libquake-linux.zip"
+            echo "  - libquake-macos.zip"
+            echo "  - libquake-win.zip"
+            exit 1
+          }
+
+          # Verify we got the expected files
+          echo "Downloaded files:"
+          ls -lh
         env:
           GH_TOKEN: ${{ github.token }}
 
