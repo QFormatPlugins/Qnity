@@ -23,17 +23,24 @@ jobs:
         with:
           dotnet-version: ${{ matrix.dotnet }}
 
-      - name: List workspace files
-        run: ls -la
+      - name: Debug - Check working directory
+        run: |
+          pwd
+          ls -la
+          ls -la tests/ || echo "tests directory not found"
+          ls -la tests/QuakeKit.Tests/ || echo "QuakeKit.Tests directory not found"
 
       - name: Restore dependencies
         run: dotnet restore tests/QuakeKit.Tests/QuakeKit.Tests.csproj
+        working-directory: ${{ github.workspace }}
 
       - name: Build
         run: dotnet build tests/QuakeKit.Tests/QuakeKit.Tests.csproj --no-restore
+        working-directory: ${{ github.workspace }}
 
       - name: Test
         run: dotnet test tests/QuakeKit.Tests/QuakeKit.Tests.csproj --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx"
+        working-directory: ${{ github.workspace }}
 
       - name: Upload test results
         if: always()
