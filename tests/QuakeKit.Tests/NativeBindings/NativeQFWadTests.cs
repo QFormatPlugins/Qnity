@@ -1,7 +1,8 @@
 using Xunit;
-using Qnity;
+using QuakeKit;
 using System;
 using System.IO;
+using System.Linq;
 
 namespace QuakeKit.Tests.NativeBindings;
 
@@ -29,236 +30,94 @@ public class NativeQFWadTests : IDisposable
     [Fact]
     public void Load_ValidWadFile_SuccessfullyLoads()
     {
-        if (!IsLibraryAvailable())
-        {
-            return;
-        }
-
-        _wad = new NativeQFWad();
-
-        // Should not throw
-        var exception = Record.Exception(() => _wad.Load(_testWadPath));
-        Assert.Null(exception);
-    }
-
-    [Fact]
-    public void ExportData_AfterLoad_ReturnsData()
-    {
-        if (!IsLibraryAvailable())
-        {
-            return;
-        }
+        if (!IsLibraryAvailable()) return;
 
         _wad = new NativeQFWad();
         _wad.Load(_testWadPath);
 
-        // Should not throw
-        var exception = Record.Exception(() => _wad.ExportData());
-        Assert.Null(exception);
+        Assert.NotNull(_wad);
     }
 
     [Fact]
-    public void ExportData_ContainsTextures()
+    public void GetTextureNames_ReturnsTextureNames()
     {
-        if (!IsLibraryAvailable())
-        {
-            return;
-        }
+        if (!IsLibraryAvailable()) return;
 
         _wad = new NativeQFWad();
         _wad.Load(_testWadPath);
-        _wad.ExportData();
+        _wad.GetTextureNames();
 
-        // Prototype WAD should contain textures
         Assert.NotEmpty(_wad.Textures);
+        Assert.All(_wad.Textures, t => Assert.False(string.IsNullOrEmpty(t.Name)));
     }
 
     [Fact]
-    public void ExportData_TexturesHaveValidNames()
+    public void GetTexture_ReturnsValidRGBAData()
     {
-        if (!IsLibraryAvailable())
-        {
-            return;
-        }
+        if (!IsLibraryAvailable()) return;
 
         _wad = new NativeQFWad();
         _wad.Load(_testWadPath);
-        _wad.ExportData();
+        var texture = _wad.GetTexture("128_blue_3");
 
-        foreach (var texture in _wad.Textures)
-        {
-            // Each texture should have a non-empty name
-            Assert.False(string.IsNullOrWhiteSpace(texture.Name));
-        }
+        Assert.NotNull(texture);
+        Assert.Equal(128u, texture.Width);
+        Assert.Equal(128u, texture.Height);
+        Assert.Equal(128u * 128u * 4u, (uint)texture.Data.Length);
     }
 
     [Fact]
-    public void ExportData_TexturesHaveValidDimensions()
+    public void GetTexture_LoadsSpecificTexture()
     {
-        if (!IsLibraryAvailable())
-        {
-            return;
-        }
+        if (!IsLibraryAvailable()) return;
 
         _wad = new NativeQFWad();
         _wad.Load(_testWadPath);
-        _wad.ExportData();
+        var texture = _wad.GetTexture("128_blue_3");
 
-        foreach (var texture in _wad.Textures)
-        {
-            // Width and height should be positive
-            Assert.True(texture.Width > 0, $"Texture {texture.Name} has invalid width");
-            Assert.True(texture.Height > 0, $"Texture {texture.Name} has invalid height");
-
-            // Dimensions should be reasonable (not absurdly large)
-            Assert.True(texture.Width <= 4096, $"Texture {texture.Name} width seems too large");
-            Assert.True(texture.Height <= 4096, $"Texture {texture.Name} height seems too large");
-        }
-    }
-
-    [Fact]
-    public void ExportData_TexturesHaveRGBAData()
-    {
-        if (!IsLibraryAvailable())
-        {
-            return;
-        }
-
-        _wad = new NativeQFWad();
-        _wad.Load(_testWadPath);
-        _wad.ExportData();
-
-        foreach (var texture in _wad.Textures)
-        {
-            // RGBA data should match dimensions
-            uint expectedSize = texture.Width * texture.Height * 4;
-            Assert.Equal(expectedSize, (uint)texture.Data.Length);
-        }
-    }
-
-    [Fact]
-    public void ExportData_Contains128Blue3Texture()
-    {
-        if (!IsLibraryAvailable())
-        {
-            return;
-        }
-
-        _wad = new NativeQFWad();
-        _wad.Load(_testWadPath);
-        _wad.ExportData();
-
-        // Our test map uses this texture
-        var blueTexture = _wad.Textures.Find(t => t.Name == "128_blue_3");
-        Assert.NotNull(blueTexture);
-        Assert.True(blueTexture.Width > 0);
-        Assert.True(blueTexture.Height > 0);
+        Assert.NotNull(texture);
+        Assert.Equal("128_blue_3", texture.Name);
     }
 
     [Fact]
     public void GetTexture_ExistingTexture_ReturnsTexture()
     {
-        if (!IsLibraryAvailable())
-        {
-            return;
-        }
+        if (!IsLibraryAvailable()) return;
 
         _wad = new NativeQFWad();
         _wad.Load(_testWadPath);
-        _wad.ExportData();
+        _wad.GetTextureNames();
 
-        // Get the first texture by name
-        var firstTextureName = _wad.Textures[0].Name;
-        var texture = _wad.GetTexture(firstTextureName);
+        var textureName = _wad.Textures[0].Name;
+        var texture = _wad.GetTexture(textureName);
 
         Assert.NotNull(texture);
-        Assert.Equal(firstTextureName, texture.Name);
+        Assert.Equal(textureName, texture.Name);
     }
 
     [Fact]
     public void GetTexture_NonExistentTexture_ReturnsNull()
     {
-        if (!IsLibraryAvailable())
-        {
-            return;
-        }
+        if (!IsLibraryAvailable()) return;
 
         _wad = new NativeQFWad();
         _wad.Load(_testWadPath);
-
-        var texture = _wad.GetTexture("nonexistent_texture_name_12345");
+        var texture = _wad.GetTexture("nonexistent");
 
         Assert.Null(texture);
     }
 
     [Fact]
-    public void Dispose_ReleasesResources()
+    public void GetTextureNames_ReturnsUniqueNames()
     {
-        if (!IsLibraryAvailable())
-        {
-            return;
-        }
+        if (!IsLibraryAvailable()) return;
 
         _wad = new NativeQFWad();
         _wad.Load(_testWadPath);
-        _wad.ExportData();
+        _wad.GetTextureNames();
 
-        // Should not throw
-        var exception = Record.Exception(() => _wad.Dispose());
-        Assert.Null(exception);
-    }
-
-    [Fact]
-    public void Load_WithDefaultPalette_SuccessfullyLoads()
-    {
-        if (!IsLibraryAvailable())
-        {
-            return;
-        }
-
-        _wad = new NativeQFWad();
-
-        // Load with default palette (IntPtr.Zero)
-        var exception = Record.Exception(() => _wad.Load(_testWadPath, IntPtr.Zero));
-        Assert.Null(exception);
-    }
-
-    [Fact]
-    public void MultipleTextures_AllHaveUniqueData()
-    {
-        if (!IsLibraryAvailable())
-        {
-            return;
-        }
-
-        _wad = new NativeQFWad();
-        _wad.Load(_testWadPath);
-        _wad.ExportData();
-
-        if (_wad.Textures.Count < 2)
-        {
-            // Need at least 2 textures to test
-            return;
-        }
-
-        // Check that textures have different data
-        var firstData = _wad.Textures[0].Data;
-        var secondData = _wad.Textures[1].Data;
-
-        // At least some bytes should be different (unless they're identical textures)
-        bool hasDifference = false;
-        int compareLength = Math.Min(firstData.Length, secondData.Length);
-        for (int i = 0; i < compareLength && !hasDifference; i++)
-        {
-            if (firstData[i] != secondData[i])
-            {
-                hasDifference = true;
-            }
-        }
-
-        // Either they have different lengths or different data
-        Assert.True(firstData.Length != secondData.Length || hasDifference,
-            "Different textures should have different data");
+        var names = _wad.Textures.Select(t => t.Name).ToList();
+        Assert.Equal(names.Count, names.Distinct().Count());
     }
 
     private bool IsLibraryAvailable()

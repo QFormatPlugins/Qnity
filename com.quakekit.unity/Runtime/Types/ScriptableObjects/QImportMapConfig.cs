@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Qnity
+namespace QuakeKit
 {
     using UnityEngine;
 

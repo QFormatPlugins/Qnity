@@ -1,12 +1,12 @@
 {
   "name": "com.quakekit.unity",
   "version": "1.0.0",
-  "displayName": "Qnity",
-  "description": "Quake (Trenchbroom) map tools",
+  "displayName": "QuakeKit",
+  "description": "Quake Format Toolkit",
   "unity": "2021.1",
   "unityRelease": "0b5",
-  "documentationUrl": "https://github.com/qnity/qnity/wiki",
-  "licensesUrl": "https://github.com/qnity/qnity/blob/main/LICENSE",
+  "documentationUrl": "https://github.com/quakekit/quakekit/wiki",
+  "licensesUrl": "https://github.com/quakekit/quakekit/blob/main/LICENSE",
   "keywords": [
     "quake",
     "trenchbroom",
@@ -15,6 +15,6 @@
   "author": {
     "name": "Tino Goehlert",
     "email": "t.goehlert@gmail.com",
-    "url": "https://github.com/qnity"
+    "url": "https://github.com/quakekit"
   }
 }

@@ -7,6 +7,7 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -37,10 +38,12 @@
              Link="NativeBindings/NativeQFBsp.cs" />
   </ItemGroup>
 
-  <!-- Include test data files -->
+  <!-- Include test data files and native library -->
   <ItemGroup>
     <None Include="../data/test.map" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../data/prototype.wad" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../com.quakekit.unity/Editor/NativeBindings/Libs/macos/libquakelib.dylib" 
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

@@ -4,12 +4,12 @@ using UnityEditor.AssetImporters;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-namespace Qnity
+namespace QuakeKit
 {
 
     public class SolidEntityGenerator
     {
-        public delegate bool ProcTextureID(int textureID);
+        public delegate bool ProcTextureName(string textureName);
         private readonly QnityMapConfigData _configData;
 
         public SolidEntityGenerator(QnityMapConfigData configData)
@@ -17,19 +17,19 @@ namespace Qnity
             _configData = configData;
         }
 
-        public List<Mesh> Generate(ref MapSolidEntity mapEntity, ProcTextureID onTextureID)
+        public List<Mesh> Generate(ref MapSolidEntity mapEntity, ProcTextureName onTextureName)
         {
             List<Mesh> meshArray = new();
 
             foreach (var submesh in mapEntity.Submeshes)
             {
                 // Skip non-solid surfaces
-                if (submesh.SurfaceType != SurfaceType.Solid)
+                if (submesh.SurfaceType != SurfaceType.SOLID)
                 {
                     continue;
                 }
 
-                onTextureID(submesh.TextureID);
+                onTextureName(submesh.TextureName);
 
                 var vertices = new List<Vector3>();
                 var normals = new List<Vector3>();

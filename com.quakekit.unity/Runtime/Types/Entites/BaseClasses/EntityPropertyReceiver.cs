@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Qnity
+namespace QuakeKit
 {
     public class EntityPropertyReceiver : MonoBehaviour
     {

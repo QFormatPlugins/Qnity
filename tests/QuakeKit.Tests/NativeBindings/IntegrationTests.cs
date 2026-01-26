@@ -1,5 +1,5 @@
 using Xunit;
-using Qnity;
+using QuakeKit;
 using System;
 using System.IO;
 using System.Linq;
@@ -46,22 +46,24 @@ public class IntegrationTests : IDisposable
         // Load MAP file
         _map = new NativeQFMap();
         _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        _map.GenerateGeometry();
         _map.ExportData();
 
         // Load WAD file
         _wad = new NativeQFWad();
         _wad.Load(_testWadPath);
-        _wad.ExportData();
+        _wad.GetTextureNames();
 
-        // Verify that textures used in the map exist in the WAD
-        foreach (var textureName in _map.TextureNames)
+        // Verify that textures used in the map submeshes can be loaded from WAD
+        var worldspawn = _map.SolidEntities[0];
+        foreach (var submesh in worldspawn.Submeshes)
         {
-            var texture = _wad.Textures.FirstOrDefault(t =>
-                t.Name.Equals(textureName, StringComparison.OrdinalIgnoreCase));
+            // Use GetTexture to load actual texture data
+            var texture = _wad.GetTexture(submesh.TextureName);
 
             Assert.NotNull(texture);
-            Assert.True(texture.Width > 0, $"Texture {textureName} should have valid width");
-            Assert.True(texture.Height > 0, $"Texture {textureName} should have valid height");
+            Assert.True(texture.Width > 0, $"Texture {submesh.TextureName} should have valid width");
+            Assert.True(texture.Height > 0, $"Texture {submesh.TextureName} should have valid height");
         }
     }
 
@@ -75,6 +77,7 @@ public class IntegrationTests : IDisposable
 
         _map = new NativeQFMap();
         _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        _map.GenerateGeometry();
         _map.ExportData();
 
         // Map should list prototype WAD as required
@@ -84,7 +87,7 @@ public class IntegrationTests : IDisposable
     }
 
     [Fact]
-    public void SubmeshTextures_HaveValidTextureIDs()
+    public void SubmeshTextures_HaveValidTextureNames()
     {
         if (!IsLibraryAvailable())
         {
@@ -93,19 +96,19 @@ public class IntegrationTests : IDisposable
 
         _map = new NativeQFMap();
         _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        _map.GenerateGeometry();
         _map.ExportData();
 
         var worldspawn = _map.SolidEntities[0];
 
         foreach (var submesh in worldspawn.Submeshes)
         {
-            // Texture ID should be valid index into texture names array
-            Assert.True(submesh.TextureID >= 0, "Texture ID should be non-negative");
-            Assert.True(submesh.TextureID < _map.TextureNames.Count,
-                "Texture ID should be valid index");
+            // Texture name should exist and not be empty
+            Assert.NotNull(submesh.TextureName);
+            Assert.NotEmpty(submesh.TextureName);
 
-            // Texture name should match
-            Assert.Equal(_map.TextureNames[submesh.TextureID], submesh.TextureName);
+            // For test.map, we know the texture is "128_blue_3"
+            Assert.Equal("128_blue_3", submesh.TextureName);
         }
     }
 
@@ -119,20 +122,22 @@ public class IntegrationTests : IDisposable
 
         _map = new NativeQFMap();
         _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        _map.GenerateGeometry();
         _map.ExportData();
 
         _wad = new NativeQFWad();
         _wad.Load(_testWadPath);
-        _wad.ExportData();
+        _wad.GetTextureNames();
 
-        // For each texture in the map, retrieve dimensions from WAD
-        foreach (var textureName in _map.TextureNames)
+        // Get texture names from submeshes
+        var worldspawn = _map.SolidEntities[0];
+        foreach (var submesh in worldspawn.Submeshes)
         {
-            var texture = _wad.GetTexture(textureName);
+            var texture = _wad.GetTexture(submesh.TextureName);
 
             Assert.NotNull(texture);
-            Assert.True(texture.Width > 0, $"Texture {textureName} width should be positive");
-            Assert.True(texture.Height > 0, $"Texture {textureName} height should be positive");
+            Assert.True(texture.Width > 0, $"Texture {submesh.TextureName} width should be positive");
+            Assert.True(texture.Height > 0, $"Texture {submesh.TextureName} height should be positive");
 
             // Verify RGBA data size matches dimensions
             uint expectedSize = texture.Width * texture.Height * 4;
@@ -153,6 +158,7 @@ public class IntegrationTests : IDisposable
         // Step 1: Load MAP file
         _map = new NativeQFMap();
         _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        _map.GenerateGeometry();
 
         // Step 2: Set special face types
         _map.SetFaceTypes("clip;trigger", SurfaceType.CLIP);
@@ -161,12 +167,11 @@ public class IntegrationTests : IDisposable
         _map.ExportData();
 
         Assert.NotEmpty(_map.SolidEntities);
-        Assert.NotEmpty(_map.TextureNames);
 
         // Step 4: Load required WAD
         _wad = new NativeQFWad();
         _wad.Load(_testWadPath);
-        _wad.ExportData();
+        _wad.GetTextureNames();
 
         Assert.NotEmpty(_wad.Textures);
 
@@ -187,8 +192,7 @@ public class IntegrationTests : IDisposable
             Assert.True(submesh.IndexOffset + submesh.IndexCount <= worldspawn.Indices.Length);
 
             // Verify we can get texture for this submesh
-            var textureName = _map.TextureNames[submesh.TextureID];
-            var texture = _wad.GetTexture(textureName);
+            var texture = _wad.GetTexture(submesh.TextureName);
             Assert.NotNull(texture);
         }
     }
@@ -203,6 +207,7 @@ public class IntegrationTests : IDisposable
 
         _map = new NativeQFMap();
         _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        _map.GenerateGeometry();
         _map.ExportData();
 
         var worldspawn = _map.SolidEntities[0];
@@ -226,6 +231,7 @@ public class IntegrationTests : IDisposable
 
         _map = new NativeQFMap();
         _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        _map.GenerateGeometry();
         _map.ExportData();
 
         var worldspawn = _map.SolidEntities[0];
@@ -255,6 +261,7 @@ public class IntegrationTests : IDisposable
 
         _map = new NativeQFMap();
         _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        _map.GenerateGeometry();
         _map.ExportData();
 
         var worldspawn = _map.SolidEntities[0];

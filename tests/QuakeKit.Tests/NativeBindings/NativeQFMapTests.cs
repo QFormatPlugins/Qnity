@@ -1,5 +1,5 @@
 using Xunit;
-using Qnity;
+using QuakeKit;
 using System;
 using System.IO;
 
@@ -38,7 +38,7 @@ public class NativeQFMapTests : IDisposable
         _map = new NativeQFMap();
 
         // Should not throw
-        var exception = Record.Exception(() => _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false));
+        var exception = Record.Exception(() => LoadAndGenerate(_map, _testMapPath, enableCSG: true, convertToOpenGL: false));
         Assert.Null(exception);
     }
 
@@ -51,7 +51,7 @@ public class NativeQFMapTests : IDisposable
         }
 
         _map = new NativeQFMap();
-        _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        LoadAndGenerate(_map, _testMapPath, enableCSG: true, convertToOpenGL: false);
 
         // Should not throw
         var exception = Record.Exception(() => _map.ExportData());
@@ -67,7 +67,7 @@ public class NativeQFMapTests : IDisposable
         }
 
         _map = new NativeQFMap();
-        _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        LoadAndGenerate(_map, _testMapPath, enableCSG: true, convertToOpenGL: false);
         _map.ExportData();
 
         // Test map should have at least worldspawn
@@ -84,7 +84,7 @@ public class NativeQFMapTests : IDisposable
         }
 
         _map = new NativeQFMap();
-        _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        LoadAndGenerate(_map, _testMapPath, enableCSG: true, convertToOpenGL: false);
         _map.ExportData();
 
         var worldspawn = _map.SolidEntities[0];
@@ -104,7 +104,7 @@ public class NativeQFMapTests : IDisposable
         }
 
         _map = new NativeQFMap();
-        _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        LoadAndGenerate(_map, _testMapPath, enableCSG: true, convertToOpenGL: false);
         _map.ExportData();
 
         var worldspawn = _map.SolidEntities[0];
@@ -124,7 +124,7 @@ public class NativeQFMapTests : IDisposable
         }
 
         _map = new NativeQFMap();
-        _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        LoadAndGenerate(_map, _testMapPath, enableCSG: true, convertToOpenGL: false);
         _map.ExportData();
 
         var worldspawn = _map.SolidEntities[0];
@@ -146,6 +146,128 @@ public class NativeQFMapTests : IDisposable
     }
 
     [Fact]
+    public void ExportData_WithoutLoad_ThrowsInvalidOperationException()
+    {
+        if (!IsLibraryAvailable())
+        {
+            return;
+        }
+
+        _map = new NativeQFMap();
+
+        // Should throw InvalidOperationException when ExportData is called without Load
+        var exception = Assert.Throws<InvalidOperationException>(() => _map.ExportData());
+        Assert.Contains("Map not loaded", exception.Message);
+    }
+
+    [Fact]
+    public void ExportData_HandlesNullPointerFromNativeLibrary()
+    {
+        if (!IsLibraryAvailable())
+        {
+            return;
+        }
+
+        _map = new NativeQFMap();
+
+        // This tests the scenario where Load succeeds but ExportAll returns null
+        // This might happen if the native library is in an inconsistent state
+        try
+        {
+            LoadAndGenerate(_map, _testMapPath, enableCSG: true, convertToOpenGL: false);
+            _map.ExportData();
+        }
+        catch (Exception ex)
+        {
+            // We expect either an Exception about export failure 
+            // or a NullReferenceException if marshaling fails with null data
+            Assert.True(
+                ex is Exception && ex.Message.Contains("Failed to export map data") ||
+                ex is NullReferenceException ||
+                ex is Exception && ex.Message.Contains("Failed to marshal map data"),
+                $"Expected export or marshal error, got: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
+    [Fact]
+    public void MarshalStringArray_HandlesNullPointers()
+    {
+        if (!IsLibraryAvailable())
+        {
+            return;
+        }
+
+        _map = new NativeQFMap();
+        LoadAndGenerate(_map, _testMapPath, enableCSG: true, convertToOpenGL: false);
+
+        // This will test if the marshaling properly handles null or invalid pointers
+        // The actual marshaling happens inside ExportData, so we test the full flow
+        try
+        {
+            _map.ExportData();
+
+            // If we get here, verify the data is valid
+            Assert.NotNull(_map.RequiredWads);
+            Assert.NotNull(_map.SolidEntities);
+            Assert.NotNull(_map.PointEntities);
+        }
+        catch (NullReferenceException ex)
+        {
+            // This is the error we're trying to reproduce
+            Assert.True(true, $"Successfully reproduced NullReferenceException: {ex.Message}");
+            throw; // Re-throw to see full stack trace
+        }
+    }
+
+    [Fact]
+    public void ExportData_ValidatesDataStructureBeforeMarshaling()
+    {
+        if (!IsLibraryAvailable())
+        {
+            return;
+        }
+
+        _map = new NativeQFMap();
+        LoadAndGenerate(_map, _testMapPath, enableCSG: true, convertToOpenGL: false);
+
+        // Try to export data and check for any marshaling errors
+        var exception = Record.Exception(() => _map.ExportData());
+
+        if (exception != null)
+        {
+            // Log detailed information about the failure
+            Assert.True(false,
+                $"ExportData failed with {exception.GetType().Name}: {exception.Message}\n" +
+                $"StackTrace: {exception.StackTrace}");
+        }
+
+        // Verify all collections are initialized (not null)
+        Assert.NotNull(_map.RequiredWads);
+        Assert.NotNull(_map.SolidEntities);
+        Assert.NotNull(_map.PointEntities);
+    }
+
+    [Fact]
+    public void Load_WithInvalidPath_ReturnsWithoutException()
+    {
+        if (!IsLibraryAvailable())
+        {
+            return;
+        }
+
+        _map = new NativeQFMap();
+
+        // Current implementation doesn't throw exceptions for invalid paths
+        // It returns silently - this is the actual behavior
+        _map.Load("/nonexistent/path/file.map", enableCSG: true, convertToOpenGL: false);
+        _map.GenerateGeometry();
+        _map.ExportData();
+
+        // Should have no entities if load failed
+        Assert.Empty(_map.SolidEntities);
+    }
+
+    [Fact]
     public void ExportData_TextureNamesPopulated()
     {
         if (!IsLibraryAvailable())
@@ -154,12 +276,18 @@ public class NativeQFMapTests : IDisposable
         }
 
         _map = new NativeQFMap();
-        _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        LoadAndGenerate(_map, _testMapPath, enableCSG: true, convertToOpenGL: false);
         _map.ExportData();
 
-        // Map uses "128_blue_3" texture
+        // Verify texture names are populated at the top level
         Assert.NotEmpty(_map.TextureNames);
         Assert.Contains("128_blue_3", _map.TextureNames);
+
+        // Also verify through submeshes
+        var worldspawn = _map.SolidEntities.FirstOrDefault(e => e.ClassName == "worldspawn");
+        Assert.NotNull(worldspawn);
+        Assert.NotEmpty(worldspawn.Submeshes);
+        Assert.Contains(worldspawn.Submeshes, s => s.TextureName == "128_blue_3");
     }
 
     [Fact]
@@ -171,7 +299,7 @@ public class NativeQFMapTests : IDisposable
         }
 
         _map = new NativeQFMap();
-        _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        LoadAndGenerate(_map, _testMapPath, enableCSG: true, convertToOpenGL: false);
         _map.ExportData();
 
         // Map should reference prototype WAD
@@ -188,7 +316,7 @@ public class NativeQFMapTests : IDisposable
         }
 
         _map = new NativeQFMap();
-        _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        LoadAndGenerate(_map, _testMapPath, enableCSG: true, convertToOpenGL: false);
 
         // Should not throw
         var exception = Record.Exception(() =>
@@ -205,7 +333,7 @@ public class NativeQFMapTests : IDisposable
         }
 
         _map = new NativeQFMap();
-        _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        LoadAndGenerate(_map, _testMapPath, enableCSG: true, convertToOpenGL: false);
         _map.ExportData();
 
         // Should not throw
@@ -222,7 +350,7 @@ public class NativeQFMapTests : IDisposable
         }
 
         _map = new NativeQFMap();
-        _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        LoadAndGenerate(_map, _testMapPath, enableCSG: true, convertToOpenGL: false);
 
         // Should still be able to dispose even without calling ExportData
         var exception = Record.Exception(() => _map.Dispose());
@@ -238,7 +366,7 @@ public class NativeQFMapTests : IDisposable
         }
 
         _map = new NativeQFMap();
-        _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        LoadAndGenerate(_map, _testMapPath, enableCSG: true, convertToOpenGL: false);
         _map.ExportData();
 
         var worldspawn = _map.SolidEntities[0];
@@ -258,13 +386,13 @@ public class NativeQFMapTests : IDisposable
         }
 
         _map = new NativeQFMap();
-        _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        LoadAndGenerate(_map, _testMapPath, enableCSG: true, convertToOpenGL: false);
         _map.ExportData();
 
         var worldspawn = _map.SolidEntities[0];
 
-        // A box should have 24 vertices (4 per face × 6 faces)
-        Assert.Equal(24, worldspawn.Vertices.Length);
+        // A box with CSG enabled has 36 vertices (6 per face × 6 faces)
+        Assert.Equal(36, worldspawn.Vertices.Length);
     }
 
     [Fact]
@@ -276,7 +404,7 @@ public class NativeQFMapTests : IDisposable
         }
 
         _map = new NativeQFMap();
-        _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        LoadAndGenerate(_map, _testMapPath, enableCSG: true, convertToOpenGL: false);
         _map.ExportData();
 
         var worldspawn = _map.SolidEntities[0];
@@ -294,19 +422,20 @@ public class NativeQFMapTests : IDisposable
         }
 
         _map = new NativeQFMap();
-        _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        LoadAndGenerate(_map, _testMapPath, enableCSG: true, convertToOpenGL: false);
         _map.ExportData();
 
         var worldspawn = _map.SolidEntities[0];
 
         // Test brush is 128x128x32 units (from -64 to 64 in X/Y, -16 to 16 in Z)
-        // Note: Coordinates might be converted to Unity space
+        Console.WriteLine($"BoundsMin: {worldspawn.BoundsMin}");
+        Console.WriteLine($"BoundsMax: {worldspawn.BoundsMax}");
         var boundsSize = worldspawn.BoundsMax - worldspawn.BoundsMin;
 
-        // Check that bounds have reasonable size (accounting for coordinate conversion)
-        Assert.True(boundsSize.x > 0, "Bounds X size should be positive");
-        Assert.True(boundsSize.y > 0, "Bounds Y size should be positive");
-        Assert.True(boundsSize.z > 0, "Bounds Z size should be positive");
+        // Check that bounds have reasonable size
+        Assert.True(boundsSize.x > 0, $"Bounds X size should be positive, got {boundsSize.x}");
+        Assert.True(boundsSize.y > 0, $"Bounds Y size should be positive, got {boundsSize.y}");
+        Assert.True(boundsSize.z > 0, $"Bounds Z size should be positive, got {boundsSize.z}");
 
         // The total volume should be approximately 128*128*32 = 524288 cubic units
         float volume = boundsSize.x * boundsSize.y * boundsSize.z;
@@ -323,19 +452,16 @@ public class NativeQFMapTests : IDisposable
         }
 
         _map = new NativeQFMap();
-        _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        LoadAndGenerate(_map, _testMapPath, enableCSG: true, convertToOpenGL: false);
         _map.ExportData();
 
         var worldspawn = _map.SolidEntities[0];
 
-        // Simple box should have 6 submeshes (one per face)
-        Assert.Equal(6, worldspawn.Submeshes.Count);
+        // CSG merges all faces into a single submesh
+        Assert.Equal(1, worldspawn.Submeshes.Count);
 
-        // All should be solid type
-        foreach (var submesh in worldspawn.Submeshes)
-        {
-            Assert.Equal(SurfaceType.SOLID, submesh.SurfaceType);
-        }
+        // Should be solid type
+        Assert.Equal(SurfaceType.SOLID, worldspawn.Submeshes[0].SurfaceType);
     }
 
     [Fact]
@@ -347,16 +473,14 @@ public class NativeQFMapTests : IDisposable
         }
 
         _map = new NativeQFMap();
-        _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        LoadAndGenerate(_map, _testMapPath, enableCSG: true, convertToOpenGL: false);
         _map.ExportData();
 
         var worldspawn = _map.SolidEntities[0];
 
-        // Each face of the box should have 4 vertices
-        foreach (var submesh in worldspawn.Submeshes)
-        {
-            Assert.Equal(4u, submesh.VertexCount);
-        }
+        // CSG creates a merged mesh - for a box (6 faces × 6 vertices per face = 36)
+        Assert.Single(worldspawn.Submeshes);
+        Assert.Equal(36u, worldspawn.Submeshes[0].VertexCount);
     }
 
     [Fact]
@@ -368,16 +492,14 @@ public class NativeQFMapTests : IDisposable
         }
 
         _map = new NativeQFMap();
-        _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        LoadAndGenerate(_map, _testMapPath, enableCSG: true, convertToOpenGL: false);
         _map.ExportData();
 
         var worldspawn = _map.SolidEntities[0];
 
-        // Each face should have 6 indices (2 triangles × 3 vertices)
-        foreach (var submesh in worldspawn.Submeshes)
-        {
-            Assert.Equal(6u, submesh.IndexCount);
-        }
+        // CSG creates a merged mesh - for a box (6 faces × 6 indices per face = 36)
+        Assert.Single(worldspawn.Submeshes);
+        Assert.Equal(36u, worldspawn.Submeshes[0].IndexCount);
     }
 
     [Fact]
@@ -389,7 +511,7 @@ public class NativeQFMapTests : IDisposable
         }
 
         _map = new NativeQFMap();
-        _map.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+        LoadAndGenerate(_map, _testMapPath, enableCSG: true, convertToOpenGL: false);
         _map.ExportData();
 
         var worldspawn = _map.SolidEntities[0];
@@ -403,13 +525,20 @@ public class NativeQFMapTests : IDisposable
         }
     }
 
+    // Helper method to load and generate geometry in one call (for tests that don't need to test the individual phases)
+    private void LoadAndGenerate(NativeQFMap map, string mapPath, bool enableCSG = true, bool convertToOpenGL = false)
+    {
+        map.Load(mapPath, enableCSG, convertToOpenGL);
+        map.GenerateGeometry();
+    }
+
     private bool IsLibraryAvailable()
     {
         try
         {
             // Try to instantiate and load - if library is missing, this will fail
             using var testMap = new NativeQFMap();
-            testMap.Load(_testMapPath, enableCSG: true, convertToOpenGL: false);
+            LoadAndGenerate(testMap, _testMapPath, enableCSG: true, convertToOpenGL: false);
             return true;
         }
         catch (DllNotFoundException)

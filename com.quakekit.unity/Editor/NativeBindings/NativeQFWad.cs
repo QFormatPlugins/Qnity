@@ -2,7 +2,9 @@ using System;
 using System.Runtime.InteropServices;
 using System.Collections.Generic;
 
-namespace Qnity
+#nullable enable
+
+namespace QuakeKit
 {
     /// <summary>
     /// Native bindings for libquake WAD file API
@@ -76,9 +78,11 @@ namespace Qnity
         }
 
         /// <summary>
-        /// Export all textures from the WAD file
+        /// Get the list of all texture names in the WAD file (no pixel data is loaded).
+        /// Use GetTexture(name) to load actual texture data for specific textures.
+        /// This uses lazy loading - texture dimensions and pixel data are not loaded until GetTexture() is called.
         /// </summary>
-        public void ExportData()
+        public void GetTextureNames()
         {
             if (_wadPtr == IntPtr.Zero)
             {
@@ -92,7 +96,7 @@ namespace Qnity
                 _dataPtr = IntPtr.Zero;
             }
 
-            // Export all textures in one batch
+            // Get all texture names (lazy loading - no pixel data)
             _dataPtr = QLibWad_ExportAll(_wadPtr);
             if (_dataPtr == IntPtr.Zero)
             {
@@ -101,7 +105,8 @@ namespace Qnity
 
             _data = Marshal.PtrToStructure<QLibWadData>(_dataPtr);
 
-            // Parse textures
+            // Parse texture metadata only (width/height/data will be 0/empty due to lazy loading)
+            // To get actual texture data, use GetTexture(name) instead
             Textures.Clear();
             for (uint i = 0; i < _data.textureCount; i++)
             {
@@ -189,18 +194,30 @@ namespace Qnity
         public uint Height { get; private set; }
         public byte[] Data { get; private set; }
 
-        public WadTexture(QLibWadTexture texture)
+        public unsafe WadTexture(QLibWadTexture texture)
         {
-            Name = texture.name;
+            // Convert fixed byte buffer name to string (null-terminated C string)
+            byte[] nameBytes = new byte[16];
+            for (int i = 0; i < 16; i++)
+            {
+                nameBytes[i] = texture.name[i];
+            }
+            int nullIndex = Array.IndexOf(nameBytes, (byte)0);
+            int nameLength = nullIndex >= 0 ? nullIndex : 16;
+            Name = System.Text.Encoding.ASCII.GetString(nameBytes, 0, nameLength);
+
             Width = texture.width;
             Height = texture.height;
 
-            // Marshal texture data
-            uint dataSize = Width * Height * 4; // RGBA
-            Data = new byte[dataSize];
-            if (texture.data != IntPtr.Zero && dataSize > 0)
+            // Debug: Check what we're reading
+            var structSize = System.Runtime.InteropServices.Marshal.SizeOf<QLibWadTexture>();
+            UnityEngine.Debug.Log($"[WadTexture] Struct size: {structSize}, name={Name}, width={Width}, height={Height}, dataSize={texture.dataSize}");
+
+            // Use the dataSize from the C API (properly set after v1.0.1 RGBA fix)
+            Data = new byte[texture.dataSize];
+            if (texture.data != IntPtr.Zero && texture.dataSize > 0)
             {
-                Marshal.Copy(texture.data, Data, 0, (int)dataSize);
+                Marshal.Copy(texture.data, Data, 0, (int)texture.dataSize);
             }
         }
     }

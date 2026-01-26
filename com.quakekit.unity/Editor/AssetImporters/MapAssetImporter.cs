@@ -1,14 +1,15 @@
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
+using System;
 using UnityEditor;
 using UnityEditor.AssetImporters;
 using UnityEditor.Events;
 using UnityEngine;
 using UnityEngine.Events;
+using System.Linq;
 
 
-namespace Qnity
+namespace QuakeKit
 {
     /// <summary>
     /// Import any files with the .map extension
@@ -30,97 +31,165 @@ namespace Qnity
                 return;
             }
 
-            if (configData == null)
+            try
             {
-                var settings = QnityProjectSettingsData.GetOrCreateSettings();
-                configData = settings.GetMapConfigData();
-            }
-
-            _solidEntityGenerator = new SolidEntityGenerator(configData);
-            Stopwatch stopwatch = Stopwatch.StartNew();
-
-            _nativeMap = new NativeQFMap();
-
-            // Load MAP file with CSG enabled
-            _nativeMap.Load(ctx.assetPath, enableCSG: true, convertToOpenGL: false);
-
-            // Set surface types for special textures
-            _nativeMap.SetFaceTypes(configData.clipTexture, SurfaceType.Clip);
-            _nativeMap.SetFaceTypes(configData.skipTexture, SurfaceType.Skip);
-            _nativeMap.SetFaceTypes(configData.skyTexture, SurfaceType.NoDraw);
-
-            // Export all geometry and entity data
-            _nativeMap.ExportData();
-
-            // Create worldspawn (first solid entity is always worldspawn)
-            GameObject worldSpawnObj = null;
-            if (_nativeMap.SolidEntities.Count > 0)
-            {
-                worldSpawnObj = CreateSolidEntityObject(ctx, "worldSpawn", _nativeMap.SolidEntities[0]);
-            }
-            else
-            {
-                // Empty map, create an empty GameObject
-                worldSpawnObj = new GameObject("worldSpawn");
-                ctx.AddObjectToAsset("worldSpawn", worldSpawnObj);
-            }
-
-            foreach (var pent in _nativeMap.PointEntities)
-            {
-                if (pent?.ClassName == null)
+                if (configData == null)
                 {
-                    continue;
+                    var settings = QnityProjectSettingsData.GetOrCreateSettings();
+                    configData = settings.GetMapConfigData();
                 }
 
-                if (!_classCount.TryAdd(pent.ClassName, 0))
+                _solidEntityGenerator = new SolidEntityGenerator(configData);
+                Stopwatch stopwatch = Stopwatch.StartNew();
+
+                _nativeMap = new NativeQFMap();
+
+                // Load MAP file with CSG enabled (parse only, no geometry yet)
+                UnityEngine.Debug.Log($"[QMapImporter] Loading map file: {ctx.assetPath}");
+                _nativeMap.Load(ctx.assetPath, enableCSG: true, convertToOpenGL: false);
+
+                // Get all texture names used in the map
+                var textureNames = _nativeMap.GetTextureNames();
+                UnityEngine.Debug.Log($"[QMapImporter] Map uses {textureNames.Count} textures");
+
+                // Register texture sizes from Unity materials
+                foreach (var textureName in textureNames)
                 {
-                    _classCount[pent.ClassName] += 1;
+                    // Get material (this will create/load it if needed)
+                    var mat = MaterialManager.Instance.GetMaterial(textureName, configData.textureFolder, configData.materialFolder);
+
+                    if (mat != null && mat.mainTexture != null)
+                    {
+                        uint width = (uint)mat.mainTexture.width;
+                        uint height = (uint)mat.mainTexture.height;
+                        _nativeMap.RegisterTextureSize(textureName, width, height);
+                    }
+                    else
+                    {
+                        // Fallback to default size if texture not found
+                        _nativeMap.RegisterTextureSize(textureName, 64, 64);
+                        UnityEngine.Debug.LogWarning($"[QMapImporter] Texture '{textureName}' not found, using default size 64x64");
+                    }
                 }
 
-                var entObj = CreatePointEntityObject(ctx, $"{pent.ClassName}_{_classCount[pent.ClassName]}", pent);
-                if (entObj != null)
+                // Generate geometry with proper UVs based on registered texture sizes
+                _nativeMap.GenerateGeometry();
+
+                // Set surface types for special textures
+                _nativeMap.SetFaceTypes(configData.clipTexture, SurfaceType.CLIP);
+                _nativeMap.SetFaceTypes(configData.skipTexture, SurfaceType.SKIP);
+                _nativeMap.SetFaceTypes(configData.skyTexture, SurfaceType.NODRAW);
+
+                // Export all geometry and entity data
+                _nativeMap.ExportData();
+
+                // Create worldspawn (first solid entity is always worldspawn)
+                GameObject worldSpawnObj = null;
+                if (_nativeMap.SolidEntities.Count > 0)
                 {
+                    worldSpawnObj = CreateSolidEntityObject(ctx, "worldSpawn", _nativeMap.SolidEntities[0]);
+                }
+                else
+                {
+                    // Empty map, create an empty GameObject
+                    worldSpawnObj = new GameObject("worldSpawn");
+                    ctx.AddObjectToAsset("worldSpawn", worldSpawnObj);
+                }
+
+                foreach (var pent in _nativeMap.PointEntities)
+                {
+                    if (pent?.ClassName == null)
+                    {
+                        continue;
+                    }
+
+                    if (!_classCount.TryAdd(pent.ClassName, 0))
+                    {
+                        _classCount[pent.ClassName] += 1;
+                    }
+
+                    var entObj = CreatePointEntityObject(ctx, $"{pent.ClassName}_{_classCount[pent.ClassName]}", pent);
+                    if (entObj != null)
+                    {
+                        entObj.transform.parent = worldSpawnObj.transform;
+                    }
+                }
+
+                // Process remaining solid entities (skip first as it's worldspawn)
+                for (int i = 1; i < _nativeMap.SolidEntities.Count; i++)
+                {
+                    var sent = _nativeMap.SolidEntities[i];
+                    if (sent == null)
+                    {
+                        continue;
+                    }
+
+                    if (!_classCount.TryAdd(sent.ClassName, 0))
+                    {
+                        _classCount[sent.ClassName] += 1;
+                    }
+
+                    var entObj = CreateSolidEntityObject(ctx, $"{sent.ClassName}_{_classCount[sent.ClassName]}", sent);
                     entObj.transform.parent = worldSpawnObj.transform;
                 }
-            }
 
-            // Process remaining solid entities (skip first as it's worldspawn)
-            for (int i = 1; i < _nativeMap.SolidEntities.Count; i++)
-            {
-                var sent = _nativeMap.SolidEntities[i];
-                if (sent == null)
+                foreach (var mat in _usedMaterials.Values.ToArray())
                 {
-                    continue;
+                    ctx.AddObjectToAsset(mat.name, mat);
                 }
 
-                if (!_classCount.TryAdd(sent.ClassName, 0))
+                var evbus = worldSpawnObj.AddComponent<QnityEventBus>();
+
+                foreach (var c in worldSpawnObj.GetComponentsInChildren<EntityEventReceiver>())
                 {
-                    _classCount[sent.ClassName] += 1;
+                    AddEventToBus(ref evbus, c.targetName, c.OnTrigger);
                 }
 
-                var entObj = CreateSolidEntityObject(ctx, $"{sent.ClassName}_{_classCount[sent.ClassName]}", sent);
-                entObj.transform.parent = worldSpawnObj.transform;
-            }
+                foreach (var c in worldSpawnObj.GetComponentsInChildren<EntityEventEmitter>())
+                {
+                    c.SetLocalEventBus(evbus);
+                }
 
-            foreach (var mat in _usedMaterials.Values.ToArray())
+                stopwatch.Stop();
+                UnityEngine.Debug.Log("parsed " + ctx.assetPath + " in: " + stopwatch.Elapsed);
+            }
+            catch (Exception ex)
             {
-                ctx.AddObjectToAsset(mat.name, mat);
+                // Log detailed error information before re-throwing
+                UnityEngine.Debug.LogError($"[QMapImporter] CRITICAL ERROR during map import: {ex?.Message ?? "Unknown error"}");
+                UnityEngine.Debug.LogError($"[QMapImporter] Exception type: {ex?.GetType().Name}");
+                UnityEngine.Debug.LogError($"[QMapImporter] Stack trace:\n{ex?.StackTrace}");
+
+                // Clean up native resources to prevent memory leaks
+                try
+                {
+                    _nativeMap?.Dispose();
+                }
+                catch (Exception disposeEx)
+                {
+                    UnityEngine.Debug.LogError($"[QMapImporter] Error during cleanup: {disposeEx?.Message}");
+                }
+
+                // Create an empty object so Unity doesn't fail completely
+                var errorObj = new GameObject("MAP_IMPORT_FAILED");
+                ctx.AddObjectToAsset("error", errorObj);
+                ctx.SetMainObject(errorObj);
+
+                // Re-throw to show error in Unity console
+                throw new Exception($"Failed to import map file {ctx.assetPath}: {ex?.Message}", ex);
             }
-
-            var evbus = worldSpawnObj.AddComponent<QnityEventBus>();
-
-            foreach (var c in worldSpawnObj.GetComponentsInChildren<EntityEventReceiver>())
+            finally
             {
-                AddEventToBus(ref evbus, c.targetName, c.OnTrigger);
+                // Always dispose native resources
+                try
+                {
+                    _nativeMap?.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    UnityEngine.Debug.LogError($"[QMapImporter] Error disposing native resources: {ex?.Message}");
+                }
             }
-
-            foreach (var c in worldSpawnObj.GetComponentsInChildren<EntityEventEmitter>())
-            {
-                c.SetLocalEventBus(evbus);
-            }
-
-            stopwatch.Stop();
-            UnityEngine.Debug.Log("parsed " + ctx.assetPath + " in: " + stopwatch.Elapsed);
         }
 
         private GameObject CreatePointEntityObject(AssetImportContext ctx, string name, MapPointEntity ent)
@@ -148,9 +217,9 @@ namespace Qnity
 
             var materials = new List<Material>();
 
-            var meshes = _solidEntityGenerator.Generate(ref ent, id =>
+            var meshes = _solidEntityGenerator.Generate(ref ent, textureName =>
             {
-                var mat = MaterialManager.Instance.GetMaterial(_nativeMap.TextureNames[id], configData.textureFolder, configData.materialFolder);
+                var mat = MaterialManager.Instance.GetMaterial(textureName, configData.textureFolder, configData.materialFolder);
                 _usedMaterials.TryAdd(mat.name, mat);
                 materials.Add(mat);
                 return true;

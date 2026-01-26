@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System;
 using UnityEngine;
 
-namespace Qnity
+namespace QuakeKit
 {
     // ============================================================================
     // QLib Common Structures (from wrapper.h)
@@ -74,18 +74,11 @@ namespace Qnity
     // Texture Bounds Callback
     // ============================================================================
 
-    [StructLayout(LayoutKind.Sequential)]
-    public struct TextureBounds
-    {
-        public float Width;
-        public float Height;
-    }
-
     // ============================================================================
     // MAP Structures (from wrapper.h)
     // ============================================================================
 
-    [StructLayout(LayoutKind.Sequential)]
+    [StructLayout(LayoutKind.Sequential, Pack = 8)]
     public struct QLibMapSubmesh
     {
         public uint vertexOffset;
@@ -93,8 +86,10 @@ namespace Qnity
         public uint indexOffset;
         public uint indexCount;
         public int textureID;
+
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)]
         public string textureName;
+
         public byte surfaceType;
     }
 
@@ -103,6 +98,7 @@ namespace Qnity
     {
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)]
         public string className;
+
         public QLibVec3 center;
         public QLibVec3 boundsMin;
         public QLibVec3 boundsMax;
@@ -116,15 +112,18 @@ namespace Qnity
         public IntPtr submeshes;
 
         public uint attributeCount;
+        private uint _padding;
+
         public IntPtr attributeKeys;
         public IntPtr attributeValues;
     }
 
-    [StructLayout(LayoutKind.Sequential)]
+    [StructLayout(LayoutKind.Sequential, Pack = 8)]
     public struct QLibMapPointEntity
     {
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)]
         public string className;
+
         public QLibVec3 origin;
         public float angle;
 
@@ -133,20 +132,22 @@ namespace Qnity
         public IntPtr attributeValues;
     }
 
+    /// <summary>
+    /// Main map data structure returned by QLibMap_ExportAll.
+    /// Must match the exact layout from libquake's wrapper.h
+    /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     public struct QLibMapData
     {
-        public uint textureCount;
-        public IntPtr textureNames;
-
-        public uint requiredWadCount;
-        public IntPtr requiredWads;
-
-        public uint solidEntityCount;
-        public IntPtr solidEntities;
-
-        public uint pointEntityCount;
-        public IntPtr pointEntities;
+        public uint solidEntityCount;      // offset 0
+        public uint pointEntityCount;      // offset 4
+        public uint textureCount;          // offset 8
+        private uint _padding1;            // offset 12 (padding before pointers)
+        public IntPtr solidEntities;       // offset 16
+        public IntPtr pointEntities;       // offset 24
+        public IntPtr textureNames;        // offset 32
+        public IntPtr requiredWads;        // offset 40
+        public uint requiredWadCount;      // offset 48
     }
 
     // ============================================================================
@@ -161,6 +162,7 @@ namespace Qnity
         public uint indexOffset;
         public uint indexCount;
         public int textureIndex;
+
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)]
         public string textureName;
     }
@@ -170,6 +172,7 @@ namespace Qnity
     {
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)]
         public string className;
+
         public QLibVec3 center;
         public QLibVec3 boundsMin;
         public QLibVec3 boundsMax;
@@ -188,6 +191,7 @@ namespace Qnity
     {
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)]
         public string className;
+
         public QLibVec3 origin;
         public float angle;
 
@@ -201,6 +205,7 @@ namespace Qnity
     {
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)]
         public string name;
+
         public uint width;
         public uint height;
         public uint dataSize;
@@ -228,14 +233,15 @@ namespace Qnity
     // WAD Structures (from wrapper.h)
     // ============================================================================
 
-    [StructLayout(LayoutKind.Sequential)]
-    public struct QLibWadTexture
+    // Marshals C struct (48 bytes). Padding field is required for correct pointer alignment.
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+    public unsafe struct QLibWadTexture
     {
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 16)]
-        public string name;
+        public fixed byte name[16];
         public uint width;
         public uint height;
         public uint dataSize;
+        private uint _padding;
         public IntPtr data;
         public byte isSky;
     }
@@ -246,7 +252,7 @@ namespace Qnity
         public uint textureCount;
         public IntPtr textures;
     }
-
+    
     // ============================================================================
     // Helper Delegates
     // ============================================================================
@@ -267,8 +273,8 @@ namespace Qnity
 
     public static class QLibVectorExtensions
     {
-        public static UnityEngine.Vector2 ToVector2(this QLibVec2 v) => new UnityEngine.Vector2(v.x, v.y);
-        public static UnityEngine.Vector3 ToVector3(this QLibVec3 v) => new UnityEngine.Vector3(v.x, v.y, v.z);
-        public static UnityEngine.Vector4 ToVector4(this QLibVec4 v) => new UnityEngine.Vector4(v.x, v.y, v.z, v.w);
+        public static UnityEngine.Vector2 ToVector2(QLibVec2 v) => new UnityEngine.Vector2(v.x, v.y);
+        public static UnityEngine.Vector3 ToVector3(QLibVec3 v) => new UnityEngine.Vector3(v.x, v.y, v.z);
+        public static UnityEngine.Vector4 ToVector4(QLibVec4 v) => new UnityEngine.Vector4(v.x, v.y, v.z, v.w);
     }
 }

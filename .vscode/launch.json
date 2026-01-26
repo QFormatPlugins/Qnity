@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug .NET Core Test",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/tests/QuakeKit.Tests/bin/Debug/net8.0/QuakeKit.Tests.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/tests/QuakeKit.Tests",
+            "stopAtEntry": false,
+            "console": "internalConsole",
+            "env": {
+                "VSTEST_HOST_DEBUG": "0"
+            }
+        }
+    ]
+}

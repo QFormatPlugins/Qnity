@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Qnity
+namespace QuakeKit
 {
     [Serializable]
     public class SolidEntity

@@ -3,7 +3,9 @@ using System.Runtime.InteropServices;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Qnity
+#nullable enable
+
+namespace QuakeKit
 {
     /// <summary>
     /// Native bindings for libquake BSP file API

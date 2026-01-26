@@ -3,7 +3,7 @@
 // entity 0
 {
 "mapversion" "220"
-"wad" "prototype_all_1_3.wad"
+"wad" "prototype.wad"
 "classname" "worldspawn"
 // brush 0
 {

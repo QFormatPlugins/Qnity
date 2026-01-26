@@ -4,7 +4,7 @@ using System;
 using System.IO;
 using Unity.VisualScripting;
 
-namespace Qnity
+namespace QuakeKit
 {
     /// <summary>
     /// Import any files with the .map extension

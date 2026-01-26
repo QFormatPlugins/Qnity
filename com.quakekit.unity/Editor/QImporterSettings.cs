@@ -7,7 +7,7 @@ using UnityEngine.UIElements;
 using UnityEditor.UIElements;
 using UnityEngine.Serialization;
 
-namespace Qnity
+namespace QuakeKit
 {
     // Create a new type of Settings Asset.
     class QnityProjectSettingsData : ScriptableObject

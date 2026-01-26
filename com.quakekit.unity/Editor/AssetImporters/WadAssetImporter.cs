@@ -6,7 +6,7 @@ using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Qnity
+namespace QuakeKit
 {
     /// <summary>
     /// Import any files with the .map extension

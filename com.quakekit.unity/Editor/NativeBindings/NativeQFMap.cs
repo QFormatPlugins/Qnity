@@ -3,7 +3,9 @@ using System.Runtime.InteropServices;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Qnity
+#nullable enable
+
+namespace QuakeKit
 {
     /// <summary>
     /// Native bindings for libquake MAP file API
@@ -20,6 +22,22 @@ namespace Qnity
             [MarshalAs(UnmanagedType.LPStr)] string filePath,
             byte enableCSG,
             byte convertToOpenGL);
+
+        [DllImport("quakelib", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr QLibMap_GetRequiredWads(IntPtr mapPtr, out uint outCount);
+
+        [DllImport("quakelib", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr QLibMap_GetTextureNames(IntPtr mapPtr, out uint outCount);
+
+        [DllImport("quakelib", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void QLibMap_RegisterTextureSize(
+            IntPtr mapPtr,
+            [MarshalAs(UnmanagedType.LPStr)] string textureName,
+            uint width,
+            uint height);
+
+        [DllImport("quakelib", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void QLibMap_GenerateGeometry(IntPtr mapPtr);
 
         [DllImport("quakelib", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr QLibMap_ExportAll(IntPtr mapPtr);
@@ -44,6 +62,11 @@ namespace Qnity
         private IntPtr _dataPtr = IntPtr.Zero;
         private QLibMapData _data;
         private bool _disposed = false;
+        private bool _geometryGenerated = false;
+
+        // CSG and coordinate system settings
+        private bool _enableCSG = true;
+        private bool _convertToOpenGL = false;
 
         // ============================================================================
         // Public Properties
@@ -59,7 +82,8 @@ namespace Qnity
         // ============================================================================
 
         /// <summary>
-        /// Load a MAP file and generate geometry
+        /// Load a MAP file (parse only, does not generate geometry yet)
+        /// Call RegisterTextureSize for textures, then GenerateGeometry, then ExportData
         /// </summary>
         /// <param name="mapPath">Path to the .map file</param>
         /// <param name="enableCSG">Enable CSG operations (brush clipping)</param>
@@ -71,12 +95,128 @@ namespace Qnity
                 Dispose();
             }
 
+            _enableCSG = enableCSG;
+            _convertToOpenGL = convertToOpenGL;
+            _geometryGenerated = false;
+
             _mapPtr = QLibMap_Load(mapPath, (byte)(enableCSG ? 1 : 0), (byte)(convertToOpenGL ? 1 : 0));
 
             if (_mapPtr == IntPtr.Zero)
             {
                 throw new Exception($"Failed to load MAP file: {mapPath}");
             }
+        }
+
+        /// <summary>
+        /// Get the list of required WAD files for this map
+        /// </summary>
+        public List<string> GetRequiredWads()
+        {
+            if (_mapPtr == IntPtr.Zero)
+            {
+                throw new InvalidOperationException("Map not loaded. Call Load() first.");
+            }
+
+            uint wadCount;
+            IntPtr wadsPtr = QLibMap_GetRequiredWads(_mapPtr, out wadCount);
+
+            var wads = new List<string>();
+            if (wadsPtr != IntPtr.Zero && wadCount > 0)
+            {
+                IntPtr[] wadPtrs = new IntPtr[wadCount];
+                Marshal.Copy(wadsPtr, wadPtrs, 0, (int)wadCount);
+
+                foreach (IntPtr wadNamePtr in wadPtrs)
+                {
+                    string? wadName = Marshal.PtrToStringAnsi(wadNamePtr);
+                    if (wadName != null)
+                    {
+                        wads.Add(wadName);
+                    }
+                }
+            }
+
+            return wads;
+        }
+
+        /// <summary>
+        /// Get all texture names used in the map
+        /// </summary>
+        public List<string> GetTextureNames()
+        {
+            if (_mapPtr == IntPtr.Zero)
+            {
+                throw new InvalidOperationException("Map not loaded. Call Load() first.");
+            }
+
+            uint textureCount;
+            IntPtr texturesPtr = QLibMap_GetTextureNames(_mapPtr, out textureCount);
+
+            var textures = new List<string>();
+            if (texturesPtr != IntPtr.Zero && textureCount > 0)
+            {
+                IntPtr[] texturePtrs = new IntPtr[textureCount];
+                Marshal.Copy(texturesPtr, texturePtrs, 0, (int)textureCount);
+
+                foreach (IntPtr textureNamePtr in texturePtrs)
+                {
+                    string? textureName = Marshal.PtrToStringAnsi(textureNamePtr);
+                    if (textureName != null)
+                    {
+                        textures.Add(textureName);
+                    }
+                }
+            }
+
+            return textures;
+        }
+
+        /// <summary>
+        /// Register texture dimensions for UV calculation
+        /// Call this for each texture before calling GenerateGeometry()
+        /// </summary>
+        public void RegisterTextureSize(string textureName, uint width, uint height)
+        {
+            if (_mapPtr == IntPtr.Zero)
+            {
+                throw new InvalidOperationException("Map not loaded. Call Load() first.");
+            }
+
+            QLibMap_RegisterTextureSize(_mapPtr, textureName, width, height);
+        }
+
+        /// <summary>
+        /// Register texture dimensions from a WAD file
+        /// </summary>
+        public void RegisterTextureSizesFromWad(NativeQFWad wad)
+        {
+            if (_mapPtr == IntPtr.Zero)
+            {
+                throw new InvalidOperationException("Map not loaded. Call Load() first.");
+            }
+
+            foreach (var textureMeta in wad.Textures)
+            {
+                var texture = wad.GetTexture(textureMeta.Name);
+                if (texture != null)
+                {
+                    RegisterTextureSize(texture.Name, texture.Width, texture.Height);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Generate geometry with proper UVs (call after registering texture sizes)
+        /// </summary>
+        public void GenerateGeometry()
+        {
+            if (_mapPtr == IntPtr.Zero)
+            {
+                throw new InvalidOperationException("Map not loaded. Call Load() first.");
+            }
+
+            QLibMap_GenerateGeometry(_mapPtr);
+            _geometryGenerated = true;
         }
 
         /// <summary>
@@ -118,6 +258,11 @@ namespace Qnity
                 throw new InvalidOperationException("Map not loaded. Call Load() first.");
             }
 
+            if (!_geometryGenerated)
+            {
+                throw new InvalidOperationException("Geometry not generated. Call GenerateGeometry() first.");
+            }
+
             // Free previous data if exists
             if (_dataPtr != IntPtr.Zero)
             {
@@ -129,33 +274,50 @@ namespace Qnity
             _dataPtr = QLibMap_ExportAll(_mapPtr);
             if (_dataPtr == IntPtr.Zero)
             {
-                throw new Exception("Failed to export map data");
+                throw new Exception("Failed to export map data - null pointer returned from QLibMap_ExportAll");
             }
 
+            // Marshal the main data structure
             _data = Marshal.PtrToStructure<QLibMapData>(_dataPtr);
 
             // Parse texture names
+            Debug.Log($"[QFMap] textureCount={_data.textureCount}, textureNames={_data.textureNames:X16}");
+            if (_data.textureCount > 0 && _data.textureNames == IntPtr.Zero)
+            {
+                Debug.LogWarning($"[QFMap] WARNING: textureCount is {_data.textureCount} but textureNames pointer is null");
+            }
             TextureNames = MarshalStringArray(_data.textureNames, _data.textureCount);
 
             // Parse required WADs
+            Debug.Log($"[QFMap] requiredWadCount={_data.requiredWadCount}, requiredWads={_data.requiredWads:X16}");
+            if (_data.requiredWadCount > 0 && _data.requiredWads == IntPtr.Zero)
+            {
+                Debug.LogWarning($"[QFMap] WARNING: requiredWadCount is {_data.requiredWadCount} but requiredWads pointer is null");
+            }
             RequiredWads = MarshalStringArray(_data.requiredWads, _data.requiredWadCount);
 
             // Parse solid entities
             SolidEntities.Clear();
-            for (uint i = 0; i < _data.solidEntityCount; i++)
+            if (_data.solidEntityCount > 0 && _data.solidEntities != IntPtr.Zero)
             {
-                IntPtr meshPtr = IntPtr.Add(_data.solidEntities, (int)(i * Marshal.SizeOf<QLibMapEntityMesh>()));
-                QLibMapEntityMesh mesh = Marshal.PtrToStructure<QLibMapEntityMesh>(meshPtr);
-                SolidEntities.Add(new MapSolidEntity(mesh));
+                for (uint i = 0; i < _data.solidEntityCount; i++)
+                {
+                    IntPtr meshPtr = IntPtr.Add(_data.solidEntities, (int)(i * Marshal.SizeOf<QLibMapEntityMesh>()));
+                    QLibMapEntityMesh mesh = Marshal.PtrToStructure<QLibMapEntityMesh>(meshPtr);
+                    SolidEntities.Add(new MapSolidEntity(mesh));
+                }
             }
 
             // Parse point entities
             PointEntities.Clear();
-            for (uint i = 0; i < _data.pointEntityCount; i++)
+            if (_data.pointEntityCount > 0 && _data.pointEntities != IntPtr.Zero)
             {
-                IntPtr entPtr = IntPtr.Add(_data.pointEntities, (int)(i * Marshal.SizeOf<QLibMapPointEntity>()));
-                QLibMapPointEntity entity = Marshal.PtrToStructure<QLibMapPointEntity>(entPtr);
-                PointEntities.Add(new MapPointEntity(entity));
+                for (uint i = 0; i < _data.pointEntityCount; i++)
+                {
+                    IntPtr entPtr = IntPtr.Add(_data.pointEntities, (int)(i * Marshal.SizeOf<QLibMapPointEntity>()));
+                    QLibMapPointEntity entity = Marshal.PtrToStructure<QLibMapPointEntity>(entPtr);
+                    PointEntities.Add(new MapPointEntity(entity));
+                }
             }
         }
 
@@ -166,16 +328,70 @@ namespace Qnity
         private List<string> MarshalStringArray(IntPtr arrayPtr, uint count)
         {
             var result = new List<string>();
-            if (arrayPtr == IntPtr.Zero || count == 0)
-                return result;
 
+            if (arrayPtr == IntPtr.Zero || count == 0)
+            {
+                return result;
+            }
+
+            // Try format 1: Array of pointers (char**)
             for (uint i = 0; i < count; i++)
             {
-                IntPtr strPtr = Marshal.ReadIntPtr(arrayPtr, (int)(i * IntPtr.Size));
-                if (strPtr != IntPtr.Zero)
+                try
                 {
-                    result.Add(Marshal.PtrToStringAnsi(strPtr)!);
+                    IntPtr strPtr = Marshal.ReadIntPtr(arrayPtr, (int)(i * IntPtr.Size));
+                    if (strPtr != IntPtr.Zero)
+                    {
+                        string? str = Marshal.PtrToStringAnsi(strPtr);
+                        if (!string.IsNullOrEmpty(str))
+                        {
+                            result.Add(str);
+                        }
+                    }
                 }
+                catch
+                {
+                    break;
+                }
+            }
+
+            if (result.Count > 0)
+            {
+                Debug.Log($"[MarshalStringArray] Read {result.Count} strings using char** format");
+                return result;
+            }
+
+            // Try format 2: Consecutive null-terminated strings
+            int offset = 0;
+            for (uint i = 0; i < count; i++)
+            {
+                try
+                {
+                    IntPtr strPtr = IntPtr.Add(arrayPtr, offset);
+                    string? str = Marshal.PtrToStringAnsi(strPtr);
+                    if (str != null)
+                    {
+                        result.Add(str);
+                        offset += str.Length + 1;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                catch
+                {
+                    break;
+                }
+            }
+
+            if (result.Count > 0)
+            {
+                Debug.Log($"[MarshalStringArray] Read {result.Count} strings using consecutive format");
+            }
+            else
+            {
+                Debug.LogWarning($"[MarshalStringArray] Failed to read any strings from pointer {arrayPtr:X16}");
             }
 
             return result;
@@ -207,7 +423,6 @@ namespace Qnity
                     _mapPtr = IntPtr.Zero;
                 }
 
-                TextureNames.Clear();
                 RequiredWads.Clear();
                 SolidEntities.Clear();
                 PointEntities.Clear();
@@ -243,43 +458,109 @@ namespace Qnity
 
         public MapSolidEntity(QLibMapEntityMesh mesh)
         {
-            ClassName = mesh.className;
+            ClassName = mesh.className ?? "unknown";
             Center = mesh.center.ToVector3();
             BoundsMin = mesh.boundsMin.ToVector3();
             BoundsMax = mesh.boundsMax.ToVector3();
 
             // Marshal attributes
-            Attributes = MarshalAttributes(mesh.attributeKeys, mesh.attributeValues, mesh.attributeCount);
-
-            // Marshal vertices
-            Vertices = new QLibVertex[mesh.totalVertexCount];
-            if (mesh.vertices != IntPtr.Zero && mesh.totalVertexCount > 0)
+            try
             {
-                int vertexSize = Marshal.SizeOf<QLibVertex>();
-                for (int i = 0; i < mesh.totalVertexCount; i++)
+                Attributes = MarshalAttributes(mesh.attributeKeys, mesh.attributeValues, mesh.attributeCount);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[MapSolidEntity] Failed to marshal attributes for {ClassName}: {ex?.Message}");
+                Attributes = new Dictionary<string, string>();
+            }
+
+            // Marshal vertices with safety checks
+            Vertices = new QLibVertex[mesh.totalVertexCount];
+            if (mesh.totalVertexCount > 0)
+            {
+                if (mesh.vertices == IntPtr.Zero)
                 {
-                    IntPtr vertPtr = IntPtr.Add(mesh.vertices, i * vertexSize);
-                    Vertices[i] = Marshal.PtrToStructure<QLibVertex>(vertPtr);
+                    Debug.LogError($"[MapSolidEntity] {ClassName}: vertexCount is {mesh.totalVertexCount} but vertices pointer is null!");
+                }
+                else
+                {
+                    try
+                    {
+                        int vertexSize = Marshal.SizeOf<QLibVertex>();
+                        for (int i = 0; i < mesh.totalVertexCount; i++)
+                        {
+                            IntPtr vertPtr = IntPtr.Add(mesh.vertices, i * vertexSize);
+                            Vertices[i] = Marshal.PtrToStructure<QLibVertex>(vertPtr);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError($"[MapSolidEntity] {ClassName}: Failed to marshal vertices: {ex?.Message}");
+                        throw;
+                    }
                 }
             }
 
-            // Marshal indices
+            // Marshal indices with safety checks
             Indices = new uint[mesh.totalIndexCount];
-            if (mesh.indices != IntPtr.Zero && mesh.totalIndexCount > 0)
+            if (mesh.totalIndexCount > 0)
             {
-                Marshal.Copy(mesh.indices, (int[])(object)Indices, 0, (int)mesh.totalIndexCount);
+                if (mesh.indices == IntPtr.Zero)
+                {
+                    Debug.LogError($"[MapSolidEntity] {ClassName}: indexCount is {mesh.totalIndexCount} but indices pointer is null!");
+                }
+                else
+                {
+                    try
+                    {
+                        // CRITICAL: Indices must be marshaled as uint[], not int[]
+                        // Using unsafe code to properly copy uint data
+                        unsafe
+                        {
+                            uint* srcPtr = (uint*)mesh.indices.ToPointer();
+                            fixed (uint* dstPtr = Indices)
+                            {
+                                for (int i = 0; i < mesh.totalIndexCount; i++)
+                                {
+                                    dstPtr[i] = srcPtr[i];
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError($"[MapSolidEntity] {ClassName}: Failed to marshal indices: {ex?.Message}");
+                        Debug.LogError($"[MapSolidEntity] IndexCount: {mesh.totalIndexCount}, Indices ptr: {mesh.indices}");
+                        throw;
+                    }
+                }
             }
 
-            // Marshal submeshes
+            // Marshal submeshes with safety checks
             Submeshes = new List<MapSubmesh>();
-            if (mesh.submeshes != IntPtr.Zero && mesh.submeshCount > 0)
+            if (mesh.submeshCount > 0)
             {
-                int submeshSize = Marshal.SizeOf<QLibMapSubmesh>();
-                for (int i = 0; i < mesh.submeshCount; i++)
+                if (mesh.submeshes == IntPtr.Zero)
                 {
-                    IntPtr submeshPtr = IntPtr.Add(mesh.submeshes, i * submeshSize);
-                    QLibMapSubmesh submesh = Marshal.PtrToStructure<QLibMapSubmesh>(submeshPtr);
-                    Submeshes.Add(new MapSubmesh(submesh));
+                    Debug.LogError($"[MapSolidEntity] {ClassName}: submeshCount is {mesh.submeshCount} but submeshes pointer is null!");
+                }
+                else
+                {
+                    try
+                    {
+                        int submeshSize = Marshal.SizeOf<QLibMapSubmesh>();
+                        for (int i = 0; i < mesh.submeshCount; i++)
+                        {
+                            IntPtr submeshPtr = IntPtr.Add(mesh.submeshes, i * submeshSize);
+                            QLibMapSubmesh submesh = Marshal.PtrToStructure<QLibMapSubmesh>(submeshPtr);
+                            Submeshes.Add(new MapSubmesh(submesh));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError($"[MapSolidEntity] {ClassName}: Failed to marshal submeshes: {ex?.Message}");
+                        throw;
+                    }
                 }
             }
         }
@@ -344,10 +625,19 @@ namespace Qnity
 
         public MapPointEntity(QLibMapPointEntity entity)
         {
-            ClassName = entity.className;
+            ClassName = entity.className ?? "unknown";
             Origin = entity.origin.ToVector3();
             Angle = entity.angle;
-            Attributes = MarshalAttributes(entity.attributeKeys, entity.attributeValues, entity.attributeCount);
+
+            try
+            {
+                Attributes = MarshalAttributes(entity.attributeKeys, entity.attributeValues, entity.attributeCount);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[MapPointEntity] Failed to marshal attributes for {ClassName}: {ex?.Message}");
+                Attributes = new Dictionary<string, string>();
+            }
         }
 
         private Dictionary<string, string> MarshalAttributes(IntPtr keys, IntPtr values, uint count)
@@ -356,17 +646,28 @@ namespace Qnity
             if (keys == IntPtr.Zero || values == IntPtr.Zero || count == 0)
                 return attrs;
 
-            for (uint i = 0; i < count; i++)
+            try
             {
-                IntPtr keyPtr = Marshal.ReadIntPtr(keys, (int)(i * IntPtr.Size));
-                IntPtr valuePtr = Marshal.ReadIntPtr(values, (int)(i * IntPtr.Size));
-
-                if (keyPtr != IntPtr.Zero && valuePtr != IntPtr.Zero)
+                for (uint i = 0; i < count; i++)
                 {
-                    string key = Marshal.PtrToStringAnsi(keyPtr)!;
-                    string value = Marshal.PtrToStringAnsi(valuePtr)!;
-                    attrs[key] = value;
+                    IntPtr keyPtr = Marshal.ReadIntPtr(keys, (int)(i * IntPtr.Size));
+                    IntPtr valuePtr = Marshal.ReadIntPtr(values, (int)(i * IntPtr.Size));
+
+                    if (keyPtr != IntPtr.Zero && valuePtr != IntPtr.Zero)
+                    {
+                        string? key = Marshal.PtrToStringAnsi(keyPtr);
+                        string? value = Marshal.PtrToStringAnsi(valuePtr);
+
+                        if (!string.IsNullOrEmpty(key) && value != null)
+                        {
+                            attrs[key] = value;
+                        }
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[MapPointEntity.MarshalAttributes] Failed to marshal attribute {attrs.Count}/{count}: {ex.Message}");
             }
 
             return attrs;
