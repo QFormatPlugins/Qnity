@@ -16,7 +16,10 @@ namespace QuakeKit
             var receiver = go.GetComponent<EntityEventReceiver>();
             var emitter = go.GetComponent<EntityEventEmitter>();
 
-            if (parser != null) parser.inverseScale = inverseScale;
+            if (parser != null)
+            {
+                parser.inverseScale = inverseScale;
+            }
             
             go.transform.position = new Vector3(-origin.y, origin.z, origin.x) / inverseScale;
             go.transform.Rotate(Vector3.up, angle+90, Space.Self);
@@ -33,7 +36,10 @@ namespace QuakeKit
                         break;
                 }
 
-                if (prop.Key != "classname" && parser != null) parser.OnProperty(prop.Key, prop.Value);
+                if (prop.Key != "classname" && parser != null)
+                {
+                    parser.OnProperty(prop.Key, prop.Value);
+                }
             }
         }
     }

@@ -49,6 +49,34 @@ namespace QuakeKit
             byte surfaceType);
 
         [DllImport("quakelib", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int QLibMap_GenerateLightmaps(
+            IntPtr mapPtr,
+            uint atlasWidth,
+            uint atlasHeight,
+            float luxelSize);
+
+        [DllImport("quakelib", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int QLibMap_GenerateLightmapsAuto(
+            IntPtr mapPtr,
+            uint atlasWidth,
+            uint atlasHeight,
+            float luxelSize,
+            QLibVec3 ambientColor);
+
+        [DllImport("quakelib", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void QLibMap_CalculateLighting(
+            IntPtr mapPtr,
+            [MarshalAs(UnmanagedType.LPArray)] QLibMapLight[] lights,
+            uint lightCount,
+            QLibVec3 ambientColor);
+
+        [DllImport("quakelib", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr QLibMap_GetLightmapData(IntPtr mapPtr);
+
+        [DllImport("quakelib", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void QLibMap_FreeLightmapData(IntPtr lightmapData);
+
+        [DllImport("quakelib", CallingConvention = CallingConvention.Cdecl)]
         private static extern void QLibMap_FreeData(IntPtr data);
 
         [DllImport("quakelib", CallingConvention = CallingConvention.Cdecl)]
@@ -76,6 +104,8 @@ namespace QuakeKit
         public List<string> RequiredWads { get; private set; } = new List<string>();
         public List<MapSolidEntity> SolidEntities { get; private set; } = new List<MapSolidEntity>();
         public List<MapPointEntity> PointEntities { get; private set; } = new List<MapPointEntity>();
+        public uint LightmapWidth { get; private set; }
+        public uint LightmapHeight { get; private set; }
 
         // ============================================================================
         // Public Methods
@@ -217,6 +247,114 @@ namespace QuakeKit
 
             QLibMap_GenerateGeometry(_mapPtr);
             _geometryGenerated = true;
+        }
+
+        /// <summary>
+        /// Generate lightmap atlas and update vertex lightmapUV coordinates to normalized (0-1) atlas space.
+        /// Call this after GenerateGeometry() but before ExportData().
+        /// </summary>
+        /// <param name="atlasWidth">Width of lightmap atlas in pixels (e.g., 512, 1024, 2048)</param>
+        /// <param name="atlasHeight">Height of lightmap atlas in pixels</param>
+        /// <param name="luxelSize">Size of each lightmap texel in world units (typical: 16.0)</param>
+        /// <returns>True if all faces packed successfully, false if atlas is too small</returns>
+        public bool GenerateLightmaps(uint atlasWidth, uint atlasHeight, float luxelSize)
+        {
+            if (_mapPtr == IntPtr.Zero)
+            {
+                throw new InvalidOperationException("Map not loaded. Call Load() first.");
+            }
+
+            if (!_geometryGenerated)
+            {
+                throw new InvalidOperationException("Geometry not generated. Call GenerateGeometry() first.");
+            }
+
+            int result = QLibMap_GenerateLightmaps(_mapPtr, atlasWidth, atlasHeight, luxelSize);
+            return result == 1;
+        }
+
+        /// <summary>
+        /// One-shot lightmap generation with automatic light extraction from MAP file.
+        /// Extracts all "light" entities, reads position/radius/color, and bakes lighting.
+        /// Call this after GenerateGeometry() but before ExportData().
+        /// </summary>
+        /// <param name="atlasWidth">Width of lightmap atlas in pixels</param>
+        /// <param name="atlasHeight">Height of lightmap atlas in pixels</param>
+        /// <param name="luxelSize">Size of each lightmap texel in world units</param>
+        /// <param name="ambientColor">Ambient light color in RGB (0-1 range)</param>
+        /// <returns>True if successful, false if atlas is too small</returns>
+        public bool GenerateLightmapsAuto(uint atlasWidth, uint atlasHeight, float luxelSize, Color ambientColor)
+        {
+            if (_mapPtr == IntPtr.Zero)
+            {
+                throw new InvalidOperationException("Map not loaded. Call Load() first.");
+            }
+
+            if (!_geometryGenerated)
+            {
+                throw new InvalidOperationException("Geometry not generated. Call GenerateGeometry() first.");
+            }
+
+            QLibVec3 ambient = new QLibVec3 { x = ambientColor.r, y = ambientColor.g, z = ambientColor.b };
+            int result = QLibMap_GenerateLightmapsAuto(_mapPtr, atlasWidth, atlasHeight, luxelSize, ambient);
+            return result == 1;
+        }
+
+        /// <summary>
+        /// Calculate baked lighting for the lightmap atlas using point lights.
+        /// Must call GenerateLightmaps() first.
+        /// </summary>
+        /// <param name="lights">Array of point lights</param>
+        /// <param name="ambientColor">Ambient light color in RGB (0-1 range)</param>
+        public void CalculateLighting(QLibMapLight[] lights, Color ambientColor)
+        {
+            if (_mapPtr == IntPtr.Zero)
+            {
+                throw new InvalidOperationException("Map not loaded. Call Load() first.");
+            }
+
+            QLibVec3 ambient = new QLibVec3 { x = ambientColor.r, y = ambientColor.g, z = ambientColor.b };
+            QLibMap_CalculateLighting(_mapPtr, lights, (uint)lights.Length, ambient);
+        }
+
+        /// <summary>
+        /// Export the generated lightmap atlas data.
+        /// Returns a tuple of (width, height, pixelData) where pixelData is RGBA bytes.
+        /// Returns null if no lightmaps have been generated.
+        /// </summary>
+        public (uint width, uint height, byte[] pixels)? GetLightmapData()
+        {
+            if (_mapPtr == IntPtr.Zero)
+            {
+                throw new InvalidOperationException("Map not loaded. Call Load() first.");
+            }
+
+            IntPtr lightmapPtr = QLibMap_GetLightmapData(_mapPtr);
+            if (lightmapPtr == IntPtr.Zero)
+            {
+                return null;
+            }
+
+            try
+            {
+                QLibMapLightmapData lightmapData = Marshal.PtrToStructure<QLibMapLightmapData>(lightmapPtr);
+
+                if (lightmapData.data == IntPtr.Zero || lightmapData.width == 0 || lightmapData.height == 0)
+                {
+                    return null;
+                }
+
+                // Copy RGBA data from native memory
+                byte[] pixels = new byte[lightmapData.dataSize];
+                Marshal.Copy(lightmapData.data, pixels, 0, (int)lightmapData.dataSize);
+
+                return (lightmapData.width, lightmapData.height, pixels);
+            }
+            finally
+            {
+                // Free native lightmap data
+                QLibMap_FreeLightmapData(lightmapPtr);
+            }
         }
 
         /// <summary>

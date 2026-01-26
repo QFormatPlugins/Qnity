@@ -132,6 +132,24 @@ namespace QuakeKit
         public IntPtr attributeValues;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    public struct QLibMapLight
+    {
+        public QLibVec3 position;      // World position of the light (12 bytes)
+        public float radius;           // Light radius/range (4 bytes)
+        public QLibVec3 color;         // RGB color 0-1 range (12 bytes)
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct QLibMapLightmapData
+    {
+        public uint width;             // Atlas width in pixels
+        public uint height;            // Atlas height in pixels
+        public uint dataSize;          // Size of data array (width * height * 4)
+        private uint _padding;         // Padding for 64-bit alignment
+        public IntPtr data;            // RGBA texture data (tightly packed)
+    }
+
     /// <summary>
     /// Main map data structure returned by QLibMap_ExportAll.
     /// Must match the exact layout from libquake's wrapper.h
@@ -252,7 +270,7 @@ namespace QuakeKit
         public uint textureCount;
         public IntPtr textures;
     }
-    
+
     // ============================================================================
     // Helper Delegates
     // ============================================================================

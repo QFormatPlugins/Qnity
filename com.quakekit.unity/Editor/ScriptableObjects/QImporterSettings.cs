@@ -12,8 +12,8 @@ namespace QuakeKit
     // Create a new type of Settings Asset.
     class QnityProjectSettingsData : ScriptableObject
     {
-        public static string k_QnityProjectSettingsPath = "Assets/QnityProjectSettingsData.asset";
-        public static string k_QnityortMapConfigDataPath = "Assets/DefaultQnityortMapConfigData.asset";
+        public static string k_QuakeKitProjectSettingsPath = "Assets/QuakeKitProjectSettingsData.asset";
+        public static string k_QuakeKitMapConfigDataPath = "Assets/DefaultQuakeKitMapConfigData.asset";
         private const string PackagePath = "Packages/com.quakekit.unity/Assets/";
         
         [SerializeField ]
@@ -21,7 +21,7 @@ namespace QuakeKit
         
         public static QnityProjectSettingsData GetOrCreateSettings()
         {
-            var settings = AssetDatabase.LoadAssetAtPath<QnityProjectSettingsData>(k_QnityProjectSettingsPath);
+            var settings = AssetDatabase.LoadAssetAtPath<QnityProjectSettingsData>(k_QuakeKitProjectSettingsPath);
             if (settings == null)
             {
                 settings = CreateInstance<QnityProjectSettingsData>();
@@ -35,8 +35,15 @@ namespace QuakeKit
                 settings.defaultQnityMapConfigData.defaultBaseMaterial = MaterialManager.Instance.GetBaseMaterial();
                 settings.defaultQnityMapConfigData.pointEntities = new List<PointEntity>();
                 settings.defaultQnityMapConfigData.solidEntities = new List<SolidEntity>();
-                AssetDatabase.CreateAsset(settings.defaultQnityMapConfigData, k_QnityortMapConfigDataPath);
-                AssetDatabase.CreateAsset(settings, k_QnityProjectSettingsPath);
+                
+                settings.defaultQnityMapConfigData.pointEntities.Add(new PointEntity 
+                {
+                    className = "light",
+                    prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PackagePath + "Prefabs/Point/PointLight.prefab")
+                });
+                
+                AssetDatabase.CreateAsset(settings.defaultQnityMapConfigData, k_QuakeKitMapConfigDataPath);
+                AssetDatabase.CreateAsset(settings, k_QuakeKitProjectSettingsPath);
                 AssetDatabase.SaveAssets();
             }
             return settings;
@@ -62,7 +69,7 @@ namespace QuakeKit
             // Second parameter is the scope of this setting: it only appears in the Project Settings window.
             var provider = new SettingsProvider("Project/QnitySettings", SettingsScope.Project)
             {
-                label = "Qnity",
+                label = "QuakeKit",
                 guiHandler = (searchContext) =>
                 {
                     var settings = QnityProjectSettingsData.GetSerializedSettings();
@@ -86,7 +93,7 @@ namespace QuakeKit
     
         class Styles
         {
-            public static GUIContent mapConfig = new GUIContent("Qnityort Map Config");
+            public static GUIContent mapConfig = new GUIContent("QuakeKit Map Config");
         }
     
         public MyCustomSettingsProvider(string path, SettingsScope scope = SettingsScope.User)
@@ -94,7 +101,7 @@ namespace QuakeKit
     
         public static bool IsSettingsAvailable()
         {
-            return File.Exists(QnityProjectSettingsData.k_QnityProjectSettingsPath);
+            return File.Exists(QnityProjectSettingsData.k_QuakeKitProjectSettingsPath);
         }
     
         public override void OnActivate(string searchContext, VisualElement rootElement)

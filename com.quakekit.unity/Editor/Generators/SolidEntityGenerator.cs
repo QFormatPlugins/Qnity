@@ -23,8 +23,8 @@ namespace QuakeKit
 
             foreach (var submesh in mapEntity.Submeshes)
             {
-                // Skip non-solid surfaces
-                if (submesh.SurfaceType != SurfaceType.SOLID)
+                // Skip non-solid surfaces (SKIP surfaces don't render at all)
+                if (submesh.SurfaceType == SurfaceType.SKIP)
                 {
                     continue;
                 }
@@ -35,7 +35,6 @@ namespace QuakeKit
                 var normals = new List<Vector3>();
                 var tangents = new List<Vector4>();
                 var uvs = new List<Vector2>();
-                var lightmapUVs = new List<Vector2>();
                 var indices = new List<int>();
 
                 // Extract vertices for this submesh
@@ -49,7 +48,6 @@ namespace QuakeKit
                     normals.Add(new Vector3(v.normal.y, -v.normal.z, -v.normal.x));
                     tangents.Add(v.tangent.ToVector4());
                     uvs.Add(new Vector2(v.uv.x, -v.uv.y));
-                    lightmapUVs.Add(new Vector2(v.lightmapUV.x, v.lightmapUV.y));
                 }
 
                 // Extract indices for this submesh (relative to submesh vertices)
@@ -64,13 +62,11 @@ namespace QuakeKit
                 m.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
                 m.vertices = vertices.ToArray();
                 m.uv = uvs.ToArray();
-                m.uv2 = lightmapUVs.ToArray();
                 m.normals = normals.ToArray();
                 m.tangents = tangents.ToArray();
                 m.SetTriangles(indices, 0);
                 meshArray.Add(m);
             }
-
             return meshArray;
         }
 

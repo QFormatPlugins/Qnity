@@ -12,6 +12,8 @@ public class MaterialManager
 
     private static MaterialManager _instance;
     private Material _baseMaterial;
+    private Material _skyMaterial;
+
     private string _baseTextureParameter;
     private readonly Dictionary<string, Material> _materialDict = new Dictionary<string, Material>();
     private readonly List<WadTexture2DCollection> _wadCollections = new List<WadTexture2DCollection>();
@@ -63,7 +65,7 @@ public class MaterialManager
         return tex;
     }
 
-    public Material GetMaterial(string name, string textureFolder, string materialFolder)
+    public Material GetMaterial(string name, string textureFolder, string materialFolder, List<string> priorityWadNames = null)
     {
         if (_materialDict.TryGetValue(name, out var material))
         {
@@ -78,6 +80,10 @@ public class MaterialManager
         }
 
         Material mat = _baseMaterial;
+        if (name.ToLower().StartsWith("sky"))
+        {
+            mat = _skyMaterial;
+        }
         if (materialFolder != "")
         {
             var materialPath = QPathTools.GetTextureAssetPath(name, materialFolder, "Material");
@@ -86,7 +92,7 @@ public class MaterialManager
                 mat = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
             }
         }
-        
+
         var newMat = new Material(mat)
         {
             name = "mat_" + name
@@ -104,10 +110,29 @@ public class MaterialManager
 
         if (tex == null)
         {
-            _wadCollections.Any(wads => (tex = wads.FindTexture(name)) != null);
+            // First try priority WADs (from map file)
+            if (priorityWadNames != null && priorityWadNames.Count > 0)
+            {
+                foreach (var wadName in priorityWadNames)
+                {
+                    var wad = _wadCollections.FirstOrDefault(w =>
+                        w.wadName != null && w.wadName.Contains(System.IO.Path.GetFileNameWithoutExtension(wadName)));
+                    if (wad != null)
+                    {
+                        tex = wad.FindTexture(name);
+                        if (tex != null) break;
+                    }
+                }
+            }
+
+            // Fallback: search all other WADs if not found
+            if (tex == null)
+            {
+                _wadCollections.Any(wads => (tex = wads.FindTexture(name)) != null);
+            }
         }
 
-        if (tex != null &&  newMat.GetTexture(_baseTextureParameter) == null)
+        if (tex != null && newMat.GetTexture(_baseTextureParameter) == null)
         {
             newMat.SetTexture(_baseTextureParameter, tex);
         }
@@ -123,6 +148,7 @@ public class MaterialManager
         if (baseMat == null)
         {
             _baseMaterial = (Material)AssetDatabase.LoadAssetAtPath(Pkgpath + pipeline + "/Base.mat", typeof(Material));
+            _skyMaterial = (Material)AssetDatabase.LoadAssetAtPath(Pkgpath + pipeline + "/Sky.mat", typeof(Material));
         }
     }
 }

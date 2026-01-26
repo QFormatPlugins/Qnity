@@ -7,6 +7,7 @@ using UnityEditor.Events;
 using UnityEngine;
 using UnityEngine.Events;
 using System.Linq;
+using Debug = UnityEngine.Debug;
 
 
 namespace QuakeKit
@@ -21,7 +22,9 @@ namespace QuakeKit
         private NativeQFMap _nativeMap;
         private readonly Dictionary<string, Material> _usedMaterials = new Dictionary<string, Material>();
         private readonly Dictionary<string, int> _classCount = new Dictionary<string, int>();
+        private readonly Dictionary<string, GameObject> _entityFolders = new Dictionary<string, GameObject>();
         private SolidEntityGenerator _solidEntityGenerator;
+        private List<string> _requiredWads;
 
 
         public override void OnImportAsset(AssetImportContext ctx)
@@ -48,6 +51,13 @@ namespace QuakeKit
                 UnityEngine.Debug.Log($"[QMapImporter] Loading map file: {ctx.assetPath}");
                 _nativeMap.Load(ctx.assetPath, enableCSG: true, convertToOpenGL: false);
 
+                // Get required WADs for texture prioritization
+                _requiredWads = _nativeMap.GetRequiredWads();
+                if (_requiredWads.Count > 0)
+                {
+                    UnityEngine.Debug.Log($"[QMapImporter] Map requires WADs: {string.Join(", ", _requiredWads)}");
+                }
+
                 // Get all texture names used in the map
                 var textureNames = _nativeMap.GetTextureNames();
                 UnityEngine.Debug.Log($"[QMapImporter] Map uses {textureNames.Count} textures");
@@ -56,7 +66,7 @@ namespace QuakeKit
                 foreach (var textureName in textureNames)
                 {
                     // Get material (this will create/load it if needed)
-                    var mat = MaterialManager.Instance.GetMaterial(textureName, configData.textureFolder, configData.materialFolder);
+                    var mat = MaterialManager.Instance.GetMaterial(textureName, configData.textureFolder, configData.materialFolder, _requiredWads);
 
                     if (mat != null && mat.mainTexture != null)
                     {
@@ -82,27 +92,17 @@ namespace QuakeKit
 
                 // Export all geometry and entity data
                 _nativeMap.ExportData();
-
-                // Create worldspawn (first solid entity is always worldspawn)
-                GameObject worldSpawnObj = null;
-                if (_nativeMap.SolidEntities.Count > 0)
-                {
-                    worldSpawnObj = CreateSolidEntityObject(ctx, "worldSpawn", _nativeMap.SolidEntities[0]);
-                }
-                else
                 {
                     // Empty map, create an empty GameObject
                     worldSpawnObj = new GameObject("worldSpawn");
                     ctx.AddObjectToAsset("worldSpawn", worldSpawnObj);
                 }
 
+                // Set worldspawn as the main asset (fixes icon issue)
+                ctx.SetMainObject(worldSpawnObj);
+
                 foreach (var pent in _nativeMap.PointEntities)
                 {
-                    if (pent?.ClassName == null)
-                    {
-                        continue;
-                    }
-
                     if (!_classCount.TryAdd(pent.ClassName, 0))
                     {
                         _classCount[pent.ClassName] += 1;
@@ -111,7 +111,16 @@ namespace QuakeKit
                     var entObj = CreatePointEntityObject(ctx, $"{pent.ClassName}_{_classCount[pent.ClassName]}", pent);
                     if (entObj != null)
                     {
-                        entObj.transform.parent = worldSpawnObj.transform;
+                        // Get or create the folder GameObject for this entity class
+                        if (!_entityFolders.TryGetValue(pent.ClassName, out var folderObj))
+                        {
+                            folderObj = new GameObject(pent.ClassName);
+                            folderObj.transform.parent = worldSpawnObj.transform;
+                            _entityFolders[pent.ClassName] = folderObj;
+                            ctx.AddObjectToAsset(pent.ClassName + "_folder", folderObj);
+                        }
+
+                        entObj.transform.parent = folderObj.transform;
                     }
                 }
 
@@ -119,10 +128,6 @@ namespace QuakeKit
                 for (int i = 1; i < _nativeMap.SolidEntities.Count; i++)
                 {
                     var sent = _nativeMap.SolidEntities[i];
-                    if (sent == null)
-                    {
-                        continue;
-                    }
 
                     if (!_classCount.TryAdd(sent.ClassName, 0))
                     {
@@ -130,7 +135,17 @@ namespace QuakeKit
                     }
 
                     var entObj = CreateSolidEntityObject(ctx, $"{sent.ClassName}_{_classCount[sent.ClassName]}", sent);
-                    entObj.transform.parent = worldSpawnObj.transform;
+
+                    // Get or create the folder GameObject for this entity class
+                    if (!_entityFolders.TryGetValue(sent.ClassName, out var folderObj))
+                    {
+                        folderObj = new GameObject(sent.ClassName);
+                        folderObj.transform.parent = worldSpawnObj.transform;
+                        _entityFolders[sent.ClassName] = folderObj;
+                        ctx.AddObjectToAsset(sent.ClassName + "_folder", folderObj);
+                    }
+
+                    entObj.transform.parent = folderObj.transform;
                 }
 
                 foreach (var mat in _usedMaterials.Values.ToArray())
@@ -216,10 +231,9 @@ namespace QuakeKit
             }
 
             var materials = new List<Material>();
-
             var meshes = _solidEntityGenerator.Generate(ref ent, textureName =>
             {
-                var mat = MaterialManager.Instance.GetMaterial(textureName, configData.textureFolder, configData.materialFolder);
+                var mat = MaterialManager.Instance.GetMaterial(textureName, configData.textureFolder, configData.materialFolder, _requiredWads);
                 _usedMaterials.TryAdd(mat.name, mat);
                 materials.Add(mat);
                 return true;
@@ -252,15 +266,16 @@ namespace QuakeKit
                 mc.sharedMesh = mesh;
             }
 
-
-            if (configData.generateLightMapUV && mesh.vertexCount > 3)
+            // Generate lightmap UVs using Unity's unwrapper if enabled
+            if (configData.generateLightmapUVs && mesh.vertexCount > 3)
             {
                 UnwrapParam.SetDefaults(out var settings);
-                settings.packMargin = 2;
-                settings.areaError = 0.01f;
-                settings.angleError = 0.01f;
-                Unwrapping.GenerateSecondaryUVSet(mesh, settings);
+                if (!Unwrapping.GenerateSecondaryUVSet(mesh, settings))
+                {
+                    Debug.Log("GenerateSecondaryUVSet failed");
+                }
             }
+
             ctx.AddObjectToAsset(name + "_mesh", mesh);
             return obj;
         }
