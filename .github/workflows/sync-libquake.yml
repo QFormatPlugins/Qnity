@@ -70,8 +70,8 @@ jobs:
           unzip -o -j temp/libquake-macos.zip "lib/*" -d "$TARGET_DIR/macos/"
 
           # Windows - try lib/* first, fallback to all .dll files if that fails
-          unzip -o -j temp/libquake-win.zip "lib/*" -d "$TARGET_DIR/win/" 2>/dev/null || \
-            unzip -o -j temp/libquake-win.zip "*.dll" -d "$TARGET_DIR/win/"
+          (unzip -o -j temp/libquake-win.zip "lib/*" -d "$TARGET_DIR/win/" 2>/dev/null || \
+            unzip -o -j temp/libquake-win.zip "*.dll" -d "$TARGET_DIR/win/") && true
 
           rm -rf temp
 
