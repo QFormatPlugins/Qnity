@@ -2,21 +2,17 @@ using UnityEngine;
 
 public class QkitPointLight : QuakeKit.EntityPropertyReceiver
 {
-    private const float IntensityBoost = 1.5f; 
-    
-    [SerializeField] private Light _lightComponent;
-    
+    [SerializeField] private Light lightComponent;
+
     public override void OnProperty(string propertyName, string propertyValue)
     {
-        _lightComponent = GetComponent<Light>();
+        lightComponent = GetComponent<Light>();
         if (propertyName == "light")
         {
-            var quakeLightValue = int.Parse(propertyValue);
-            
-            // 1. Calculate the distance the light should reach
-            var calculatedRange = quakeLightValue / inverseScale;
-            _lightComponent.range = calculatedRange;
-            _lightComponent.intensity = quakeLightValue * IntensityBoost / inverseScale;
+            var quakeLightValue = float.Parse(propertyValue);
+            float rangeQuakeUnits = (-1f + Mathf.Sqrt(1f + 1024f * quakeLightValue)) * 0.5f;
+            lightComponent.range = rangeQuakeUnits / inverseScale;
+            lightComponent.intensity = quakeLightValue * 6.283f / (inverseScale * inverseScale);
         }
     }
 }

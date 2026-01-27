@@ -48,19 +48,13 @@ namespace QuakeKit
                 _nativeMap = new NativeQFMap();
 
                 // Load MAP file with CSG enabled (parse only, no geometry yet)
-                UnityEngine.Debug.Log($"[QMapImporter] Loading map file: {ctx.assetPath}");
                 _nativeMap.Load(ctx.assetPath, enableCSG: true, convertToOpenGL: false);
 
                 // Get required WADs for texture prioritization
                 _requiredWads = _nativeMap.GetRequiredWads();
-                if (_requiredWads.Count > 0)
-                {
-                    UnityEngine.Debug.Log($"[QMapImporter] Map requires WADs: {string.Join(", ", _requiredWads)}");
-                }
 
                 // Get all texture names used in the map
                 var textureNames = _nativeMap.GetTextureNames();
-                UnityEngine.Debug.Log($"[QMapImporter] Map uses {textureNames.Count} textures");
 
                 // Register texture sizes from Unity materials
                 foreach (var textureName in textureNames)
@@ -78,7 +72,7 @@ namespace QuakeKit
                     {
                         // Fallback to default size if texture not found
                         _nativeMap.RegisterTextureSize(textureName, 64, 64);
-                        UnityEngine.Debug.LogWarning($"[QMapImporter] Texture '{textureName}' not found, using default size 64x64");
+                        Debug.LogWarning($"[QMapImporter] Texture '{textureName}' not found, using default size 64x64");
                     }
                 }
 
@@ -92,14 +86,59 @@ namespace QuakeKit
 
                 // Export all geometry and entity data
                 _nativeMap.ExportData();
-                {
-                    // Empty map, create an empty GameObject
-                    worldSpawnObj = new GameObject("worldSpawn");
-                    ctx.AddObjectToAsset("worldSpawn", worldSpawnObj);
-                }
+
+                // Create worldspawn GameObject
+                GameObject worldSpawnObj = new GameObject("worldSpawn");
+                worldSpawnObj.isStatic = true; // Mark as static for lightmapping
+                ctx.AddObjectToAsset("worldSpawn", worldSpawnObj);
 
                 // Set worldspawn as the main asset (fixes icon issue)
                 ctx.SetMainObject(worldSpawnObj);
+
+                // Process worldspawn geometry (first solid entity)
+                if (_nativeMap.SolidEntities.Count > 0)
+                {
+                    var worldspawnEntity = _nativeMap.SolidEntities[0];
+
+                    var mr = worldSpawnObj.AddComponent<MeshRenderer>();
+                    var mf = worldSpawnObj.AddComponent<MeshFilter>();
+                    var mc = worldSpawnObj.AddComponent<MeshCollider>();
+
+                    var materials = new List<Material>();
+                    // Add mesh components directly to worldSpawnObj
+                    var meshes = _solidEntityGenerator.Generate(ref worldspawnEntity, (textureName) =>
+                    {
+                        var mat = MaterialManager.Instance.GetMaterial(textureName, configData.textureFolder, configData.materialFolder, _requiredWads);
+                        _usedMaterials.TryAdd(mat.name, mat);
+                        materials.Add(mat);
+                        return true;
+                    });
+
+                    if (meshes.Count > 0)
+                    {
+
+                        mr.sharedMaterials = materials.ToArray();
+
+                        var combinedMesh = new Mesh();
+                        var combineFilters = new CombineInstance[meshes.Count];
+                        for (int i = 0; i < meshes.Count; i++)
+                        {
+                            combineFilters[i].mesh = meshes[i];
+                            combineFilters[i].transform = mf.transform.localToWorldMatrix;
+                        }
+
+                        combinedMesh.CombineMeshes(combineFilters, false);
+                        combinedMesh.name = "worldspawn_mesh";
+
+                        // Clear UV2 to ensure clean state on reimport
+                        combinedMesh.uv2 = null;
+
+                        mf.sharedMesh = combinedMesh;
+                        mc.sharedMesh = combinedMesh;
+
+                        ctx.AddObjectToAsset("worldspawn_mesh", combinedMesh);
+                    }
+                }
 
                 foreach (var pent in _nativeMap.PointEntities)
                 {
@@ -166,14 +205,13 @@ namespace QuakeKit
                 }
 
                 stopwatch.Stop();
-                UnityEngine.Debug.Log("parsed " + ctx.assetPath + " in: " + stopwatch.Elapsed);
             }
             catch (Exception ex)
             {
                 // Log detailed error information before re-throwing
-                UnityEngine.Debug.LogError($"[QMapImporter] CRITICAL ERROR during map import: {ex?.Message ?? "Unknown error"}");
-                UnityEngine.Debug.LogError($"[QMapImporter] Exception type: {ex?.GetType().Name}");
-                UnityEngine.Debug.LogError($"[QMapImporter] Stack trace:\n{ex?.StackTrace}");
+                Debug.LogError($"[QMapImporter] CRITICAL ERROR during map import: {ex?.Message ?? "Unknown error"}");
+                Debug.LogError($"[QMapImporter] Exception type: {ex?.GetType().Name}");
+                Debug.LogError($"[QMapImporter] Stack trace:\n{ex?.StackTrace}");
 
                 // Clean up native resources to prevent memory leaks
                 try
@@ -182,7 +220,7 @@ namespace QuakeKit
                 }
                 catch (Exception disposeEx)
                 {
-                    UnityEngine.Debug.LogError($"[QMapImporter] Error during cleanup: {disposeEx?.Message}");
+                    Debug.LogError($"[QMapImporter] Error during cleanup: {disposeEx?.Message}");
                 }
 
                 // Create an empty object so Unity doesn't fail completely
@@ -202,7 +240,7 @@ namespace QuakeKit
                 }
                 catch (Exception ex)
                 {
-                    UnityEngine.Debug.LogError($"[QMapImporter] Error disposing native resources: {ex?.Message}");
+                    Debug.LogError($"[QMapImporter] Error disposing native resources: {ex?.Message}");
                 }
             }
         }
@@ -256,6 +294,11 @@ namespace QuakeKit
 
             mesh.CombineMeshes(combineFilters, false);
             mesh.name = name + "_mesh";
+
+            // Clear UV2 to ensure clean state on reimport
+            // User can regenerate via button if needed
+            mesh.uv2 = null;
+
             if (mf != null)
             {
                 mf.sharedMesh = mesh;
@@ -265,17 +308,7 @@ namespace QuakeKit
             {
                 mc.sharedMesh = mesh;
             }
-
-            // Generate lightmap UVs using Unity's unwrapper if enabled
-            if (configData.generateLightmapUVs && mesh.vertexCount > 3)
-            {
-                UnwrapParam.SetDefaults(out var settings);
-                if (!Unwrapping.GenerateSecondaryUVSet(mesh, settings))
-                {
-                    Debug.Log("GenerateSecondaryUVSet failed");
-                }
-            }
-
+            
             ctx.AddObjectToAsset(name + "_mesh", mesh);
             return obj;
         }

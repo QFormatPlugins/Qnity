@@ -211,7 +211,6 @@ namespace QuakeKit
 
             // Debug: Check what we're reading
             var structSize = System.Runtime.InteropServices.Marshal.SizeOf<QLibWadTexture>();
-            UnityEngine.Debug.Log($"[WadTexture] Struct size: {structSize}, name={Name}, width={Width}, height={Height}, dataSize={texture.dataSize}");
 
             // Use the dataSize from the C API (properly set after v1.0.1 RGBA fix)
             Data = new byte[texture.dataSize];

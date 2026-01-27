@@ -419,7 +419,6 @@ namespace QuakeKit
             _data = Marshal.PtrToStructure<QLibMapData>(_dataPtr);
 
             // Parse texture names
-            Debug.Log($"[QFMap] textureCount={_data.textureCount}, textureNames={_data.textureNames:X16}");
             if (_data.textureCount > 0 && _data.textureNames == IntPtr.Zero)
             {
                 Debug.LogWarning($"[QFMap] WARNING: textureCount is {_data.textureCount} but textureNames pointer is null");
@@ -427,7 +426,6 @@ namespace QuakeKit
             TextureNames = MarshalStringArray(_data.textureNames, _data.textureCount);
 
             // Parse required WADs
-            Debug.Log($"[QFMap] requiredWadCount={_data.requiredWadCount}, requiredWads={_data.requiredWads:X16}");
             if (_data.requiredWadCount > 0 && _data.requiredWads == IntPtr.Zero)
             {
                 Debug.LogWarning($"[QFMap] WARNING: requiredWadCount is {_data.requiredWadCount} but requiredWads pointer is null");
@@ -495,7 +493,6 @@ namespace QuakeKit
 
             if (result.Count > 0)
             {
-                Debug.Log($"[MarshalStringArray] Read {result.Count} strings using char** format");
                 return result;
             }
 
@@ -521,15 +518,6 @@ namespace QuakeKit
                 {
                     break;
                 }
-            }
-
-            if (result.Count > 0)
-            {
-                Debug.Log($"[MarshalStringArray] Read {result.Count} strings using consecutive format");
-            }
-            else
-            {
-                Debug.LogWarning($"[MarshalStringArray] Failed to read any strings from pointer {arrayPtr:X16}");
             }
 
             return result;

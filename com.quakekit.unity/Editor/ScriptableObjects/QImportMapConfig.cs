@@ -13,9 +13,6 @@ namespace QuakeKit
 
         [Header("General")]
         public float inverseScale = 24;
-        [Header("Lightmapping")]
-        [Tooltip("Generate lightmap UVs using Unity's unwrapper. SLOW but enables Unity's lightmapper and GI. Default: false")]
-        public bool generateLightmapUVs = false;
         [Header("Materials and Folders")]
         public Material defaultBaseMaterial;
         public string textureFolder = "Assets/Textures/";
